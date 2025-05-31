@@ -35,12 +35,12 @@ def _parse_val(v):
 
 
 class Status:
-    def __init__(self, auth_user, auth_passwd="", url=""):
+    def __init__(self, user, password="", url=""):
+        self.url = url
         self.passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
-        self.passman.add_password(None, self.url, auth_user, auth_passwd)
+        self.passman.add_password(None, self.url, user, password)
         self.authhandler = urllib.request.HTTPBasicAuthHandler(self.passman)
         self.opener = urllib.request.build_opener(self.authhandler)
-        self.url = url
         urllib.request.install_opener(self.opener)
 
     def __call__(self):
