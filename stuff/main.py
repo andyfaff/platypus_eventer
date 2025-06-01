@@ -1,4 +1,5 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value, Event
+import ctypes
 import time
 from pathlib import Path
 import signal
@@ -33,20 +34,47 @@ class State:
 class EventStreamer:
     def __init__(self):
         self.stream_loc = None
+        self.queue = None
+        self.shutdown_event = Event()
+        self.frame_event = Event()
         self.currently_streaming = False
+        self.frame = Value(ctypes.c_uint32)
 
     def stop(self):
         self.currently_streaming = False
+        self.shutdown_event.set()
+        self.p_t0_streamer.join()
+        self.p_t0_streamer.close()
+        self.p_ADC_streamer.join()
+        self.p_ADC_streamer.close()
+
         self.queue.put(None)
         self.queue.join()
-        self.p.join()
-        self.p.close()
+        self.p_writer.join()
+        self.p_writer.close()
 
     def start(self, stream_loc):
         self.stream_loc = stream_loc
+        self.shutdown_event.clear()
+        self.frame_event.clear()
+
+        self.frame = Value(ctypes.c_uint32)
         self.queue = Queue()
-        self.p = Process(target=streamer.writer, args=(stream_loc, self.queue))
-        self.p.start()
+        self.p_writer = Process(
+            target=streamer.writer, args=(stream_loc, self.queue, self.shutdown_event)
+        )
+        self.p_t0_streamer = Process(
+            target=streamer.T0_streamer,
+            args=(self.frame, self.queue, self.frame_event, self.shutdown_event),
+        )
+        self.p_ADC_streamer = Process(
+            target=streamer.ADC_streamer,
+            args=(self.frame, self.queue, self.frame_event, self.shutdown_event),
+        )
+
+        self.p_writer.start()
+        self.p_t0_streamer.start()
+
         self.currently_streaming = True
 
 

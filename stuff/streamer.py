@@ -1,11 +1,9 @@
 from multiprocessing import Process, Queue, Event
-import threading
 from functools import partial
 import time
 import gzip
 import numpy as np
 import struct
-from pathlib import Path
 import RPi.GPIO as gpio
 
 
@@ -24,14 +22,46 @@ def writer(pth, queue):
 nan = np.float16(np.nan).tobytes()
 
 
-def streamer(producer_queue, consumer_queue):
-    frame = 0
-
-    def callback(producer_queue, ev, channel):
+def T0_streamer(frame, queue, frame_event, shutdown_event):
+    def _callback(queue, channel):
         t = time.time_ns()
-        frame += 1
-        b = struct.pack(">LQ2s", frame, t, nan)
-        producer_queue.put(b)
+        with frame.get_lock():
+            frame.value += 1
+            b = struct.pack(">LQ2s", frame.value, t, nan)
+        queue.put(b)
+        frame_event.set()
+
+    callback = partial(_callback, queue)
+    gpio.setmode(gpio.BOARD)
+    gpio.setup(PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
+    gpio.add_event_detect(PIN, gpio.RISING)
+    gpio.add_event_callback(PIN, callback)
 
     while True:
-        pass
+        shutdown_event.wait(timeout=1.0)
+        if shutdown_event.is_set():
+            break
+
+    gpio.cleanup()
+
+
+def ADC_streamer(frame, queue, frame_event, shutdown_event):
+    # TODO ADC pin
+    gpio.setmode(gpio.BOARD)
+
+    while True:
+        frame_event.wait(timeout=1)
+        if frame_event.is_set():
+            # ADC measure
+
+            t = time.time_ns()
+            with frame.get_lock():
+                b = struct.pack(">LQ2s", frame.value, t, -1.0)
+                queue.put(b)
+            # this specifies one measurement per frame
+            frame_event.clear()
+
+        if shutdown_event.is_set():
+            break
+
+    gpio.cleanup()
