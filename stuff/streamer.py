@@ -7,6 +7,9 @@ import struct
 import RPi.GPIO as gpio
 
 
+T0_PIN = 10
+
+
 def writer(pth, queue):
     with gzip.GzipFile(pth / "EOS.gz", mode="wb", compresslevel=2) as fi:
         while True:
@@ -33,9 +36,9 @@ def T0_streamer(frame, queue, frame_event, shutdown_event):
 
     callback = partial(_callback, queue)
     gpio.setmode(gpio.BOARD)
-    gpio.setup(PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
-    gpio.add_event_detect(PIN, gpio.RISING)
-    gpio.add_event_callback(PIN, callback)
+    gpio.setup(T0_PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
+    gpio.add_event_detect(T0_PIN, gpio.RISING)
+    gpio.add_event_callback(T0_PIN, callback)
 
     while True:
         shutdown_event.wait(timeout=1.0)
