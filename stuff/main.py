@@ -1,11 +1,12 @@
-import threading
+from multiprocessing import Process, Queue
 import time
-import urllib.request
 from pathlib import Path
 import signal
 import sys
 from functools import partial
 from status import Status, parse_status
+import streamer
+
 
 url = "http://localhost:60001/admin/textstatus.egi"
 
@@ -36,9 +37,16 @@ class EventStreamer:
 
     def stop(self):
         self.currently_streaming = False
+        self.queue.put(None)
+        self.queue.join()
+        self.p.join()
+        self.p.close()
 
     def start(self, stream_loc):
         self.stream_loc = stream_loc
+        self.queue = Queue()
+        self.p = Process(target=streamer.writer, args=(stream_loc, queue))
+        self.p.start()
         self.currently_streaming = True
 
 
