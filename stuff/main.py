@@ -45,7 +45,7 @@ class EventStreamer:
     def start(self, stream_loc):
         self.stream_loc = stream_loc
         self.queue = Queue()
-        self.p = Process(target=streamer.writer, args=(stream_loc, queue))
+        self.p = Process(target=streamer.writer, args=(stream_loc, self.queue))
         self.p.start()
         self.currently_streaming = True
 
@@ -72,7 +72,8 @@ def main(user, password="", pth=None):
     update_period = 2.0
 
     while True:
-        state = State(s())
+        _s = s()
+        state = State(_s)
 
         if streamer.currently_streaming and (
             not state.acquiring
@@ -92,6 +93,8 @@ def main(user, password="", pth=None):
                 stream_loc = pth / state.DAQ_dirname / f"DATA_{state.DATASET_number}"
                 stream_loc.mkdir(parents=True)
                 print(f"New sample event file started, {stream_loc=}")
+                with open(stream_loc, "w") as f:
+                    f.write(_s)
 
             streamer.start(stream_loc)
             update_period = 10.0
