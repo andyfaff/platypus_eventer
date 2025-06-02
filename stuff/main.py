@@ -2,6 +2,7 @@ from multiprocessing import Process, Queue, Value, Event
 import ctypes
 import time
 from pathlib import Path
+import os
 import signal
 import sys
 from functools import partial
@@ -19,8 +20,12 @@ class State:
         self.dct.update(status)
 
     @property
-    def acquiring(self):
+    def started(self):
         return self.dct["DAQ"] == "Started"
+
+    @property
+    def starting(self):
+        return self.dct["DAQ"] == "Starting"
 
     @property
     def DAQ_dirname(self):
@@ -60,20 +65,19 @@ class EventStreamer:
 
         self.frame = Value(ctypes.c_uint32)
         self.queue = Queue()
-        self.p_writer = Process(
-            target=streamer.writer, args=(stream_loc, self.queue, self.shutdown_event)
-        )
+        self.p_writer = Process(target=streamer.writer, args=(stream_loc, self.queue))
         self.p_t0_streamer = Process(
             target=streamer.T0_streamer,
-            args=(self.frame, self.queue, self.frame_event, self.shutdown_event),
+            args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
         )
         self.p_ADC_streamer = Process(
             target=streamer.ADC_streamer,
-            args=(self.frame, self.queue, self.frame_event, self.shutdown_event),
+            args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
         )
 
         self.p_writer.start()
         self.p_t0_streamer.start()
+        self.p_ADC_streamer.start()
 
         self.currently_streaming = True
 
@@ -86,8 +90,6 @@ def _signal_close(streamer, signal, frame):
 def main(user, password="", pth=None):
     if pth is None:
         pth = Path.cwd()
-
-    currently_streaming = False
 
     s = Status(user, password=password, url=url)
     old_state = State(s())
@@ -104,22 +106,23 @@ def main(user, password="", pth=None):
         state = State(_s)
 
         if streamer.currently_streaming and (
-            not state.acquiring
+            not (state.started or state.starting)
             or state.DAQ_dirname != old_state.DAQ_dirname
             or state.DATASET_number != old_state.DATASET_number
         ):
             # stop streaming
             streamer.stop()
-            update_period = 2
+            update_period = 1
 
-        if state.acquiring and not streamer.currently_streaming:
+        if (state.started or state.starting) and not streamer.currently_streaming:
             # time to start new directories and start streaming
             if (
                 state.DAQ_dirname != old_state.DAQ_dirname
                 or state.DATASET_number != old_state.DATASET_number
             ):
                 stream_loc = pth / state.DAQ_dirname / f"DATA_{state.DATASET_number}"
-                stream_loc.mkdir(parents=True)
+                stream_loc = stream_loc.resolve()
+                os.makedirs(stream_loc, exist_ok=True)
                 print(f"New sample event file started, {stream_loc=}")
                 with open(stream_loc, "w") as f:
                     f.write(_s)

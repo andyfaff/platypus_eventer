@@ -25,7 +25,7 @@ def writer(pth, queue):
 nan = np.float16(np.nan).tobytes()
 
 
-def T0_streamer(frame, queue, frame_event, shutdown_event):
+def T0_streamer(frame, frame_event, queue, shutdown_event):
     def _callback(queue, channel):
         t = time.time_ns()
         with frame.get_lock():
@@ -48,7 +48,7 @@ def T0_streamer(frame, queue, frame_event, shutdown_event):
     gpio.cleanup()
 
 
-def ADC_streamer(frame, queue, frame_event, shutdown_event):
+def ADC_streamer(frame, frame_event, queue, shutdown_event):
     # TODO ADC pin
     gpio.setmode(gpio.BOARD)
 
