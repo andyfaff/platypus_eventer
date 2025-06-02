@@ -3,6 +3,7 @@ import ctypes
 import time
 from pathlib import Path
 import os
+import glob
 import signal
 import sys
 from functools import partial
@@ -39,24 +40,54 @@ class State:
 class EventStreamer:
     def __init__(self):
         self.stream_loc = None
+
         self.queue = None
         self.shutdown_event = Event()
         self.frame_event = Event()
+        self.p_writer = None
+        self.p_ADC_streamer = None
+        self.p_t0_streamer = None
+
         self.currently_streaming = False
         self.frame = Value(ctypes.c_uint32)
 
-    def stop(self):
+    def stop(self, DATASET_number=None, final_state=None):
         self.currently_streaming = False
         self.shutdown_event.set()
-        self.p_t0_streamer.join()
-        self.p_t0_streamer.close()
-        self.p_ADC_streamer.join()
-        self.p_ADC_streamer.close()
 
-        self.queue.put(None)
-        self.queue.join()
-        self.p_writer.join()
-        self.p_writer.close()
+        if self.p_t0_streamer is not None:
+            try:
+                self.p_t0_streamer.join()
+                self.p_t0_streamer.close()
+            except ValueError:
+                pass
+
+        if self.p_ADC_streamer is not None:
+            try:
+                self.p_ADC_streamer.join()
+                self.p_ADC_streamer.close()
+            except ValueError:
+                pass
+
+        if self.queue is not None:
+            self.queue.put(None)
+            while not self.queue.empty():
+                time.sleep(0.1)
+
+        if self.p_writer is not None:
+            try:
+                self.p_writer.join()
+                self.p_writer.close()
+            except ValueError:
+                pass
+
+        if DATASET_number is not None and final_state is not None:
+            parent = self.stream_loc.parent
+            new_name = parent / f"DATA_{DATASET_number}"
+            self.stream_loc.rename(new_name)
+            self.stream_loc = new_name
+            with open(self.stream_loc / "final_state.txt", "w") as f:
+                f.write(final_state)
 
     def start(self, stream_loc):
         self.stream_loc = stream_loc
@@ -90,6 +121,8 @@ def _signal_close(streamer, signal, frame):
 def main(user, password="", pth=None):
     if pth is None:
         pth = Path.cwd()
+    else:
+        pth = Path(pth)
 
     s = Status(user, password=password, url=url)
     old_state = State(s())
@@ -101,34 +134,62 @@ def main(user, password="", pth=None):
 
     update_period = 2.0
 
+    actual_dataset_number = 0
+    dataset_number_being_written = 0
+    LAST_DAQ_DIRNAME = ""
+
     while True:
         _s = s()
         state = State(_s)
 
+        if state.started:
+            actual_dataset_number = state.DATASET_number
+            if actual_dataset_number != dataset_number_being_written:
+                # we'll want to stop the streaming and update directories
+                pass
+            else:
+                # dataset number is correct
+                update_period = 2.0
+
         if streamer.currently_streaming and (
             not (state.started or state.starting)
             or state.DAQ_dirname != old_state.DAQ_dirname
-            or state.DATASET_number != old_state.DATASET_number
+            or (state.started and actual_dataset_number != dataset_number_being_written)
         ):
             # stop streaming
-            streamer.stop()
+            print(f"Stopping streamer, {state.DAQ_dirname=}")
+            streamer.stop(actual_dataset_number, _s)
             update_period = 1
 
         if (state.started or state.starting) and not streamer.currently_streaming:
             # time to start new directories and start streaming
-            if (
-                state.DAQ_dirname != old_state.DAQ_dirname
-                or state.DATASET_number != old_state.DATASET_number
-            ):
-                stream_loc = pth / state.DAQ_dirname / f"DATA_{state.DATASET_number}"
-                stream_loc = stream_loc.resolve()
-                os.makedirs(stream_loc, exist_ok=True)
-                print(f"New sample event file started, {stream_loc=}")
-                with open(stream_loc, "w") as f:
-                    f.write(_s)
+            if LAST_DAQ_DIRNAME != state.DAQ_dirname:
+                # totally new dataset
+                LAST_DAQ_DIRNAME = state.DAQ_dirname
+                dataset_number_being_written = 0
+            elif state.started:
+                dataset_number_being_written = state.DATASET_number
+            elif state.starting:
+                # dataset number probably incremented by one
+                dirs = glob.glob("DATA_*", root_dir=pth / state.DAQ_dirname)
+                nums = [int(s.split(sep="_")[-1]) for s in dirs]
+                if len(nums):
+                    dataset_number_being_written = max(nums) + 1
+                else:
+                    dataset_number_being_written = 0
+
+            stream_loc = (
+                pth / state.DAQ_dirname / f"DATA_{dataset_number_being_written}"
+            )
+            stream_loc = stream_loc.resolve()
+
+            os.makedirs(stream_loc, exist_ok=True)
+            print(f"New sample event file starting, {stream_loc=}")
+            with open(stream_loc / "state.txt", "w") as f:
+                f.write(_s)
 
             streamer.start(stream_loc)
-            update_period = 10.0
+            update_period = 1.0
 
         old_state = state
         time.sleep(update_period)
