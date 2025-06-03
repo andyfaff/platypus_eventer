@@ -10,10 +10,11 @@ import struct
 
 
 T0_PIN = 10
+T4_PIN = 11
 
 
 def writer(pth, queue):
-    with gzip.GzipFile(pth / "EOS.gz", mode="wb", compresslevel=2) as fi:
+    with gzip.GzipFile(pth / "EOS.gz", mode="wb", compresslevel=4) as fi:
         while True:
             item = queue.get()
             if item is None:
@@ -65,23 +66,47 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
 
 
 def ADC_streamer(frame, frame_event, queue, shutdown_event):
-    # TODO ADC pin
+    # only for testing chopper 4 signal. When you use ADC comment this out again
+    def _callback(queue, channel):
+        t = time.time_ns()
+        with frame.get_lock():
+            b = struct.pack(">LQ2s", frame.value, t, np.float16(4).tobytes())
+        queue.put(b)
+
+    callback = partial(_callback, queue)
+
     # gpio.setmode(gpio.BOARD)
+    # gpio.setup(T4_PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
+    # gpio.add_event_detect(T4_PIN, gpio.RISING)
+    # gpio.add_event_callback(T4_PIN, callback)
 
     while True:
-        frame_event.wait(timeout=1)
-        if frame_event.is_set():
-            # ADC measure
-            # print("logged ADC")
-            t = time.time_ns()
-            with frame.get_lock():
-                b = struct.pack(">LQ2s", frame.value, t, np.float16(-1.0).tobytes())
-                queue.put(b)
-            # this specifies one measurement per frame
-            frame_event.clear()
-
+        shutdown_event.wait(timeout=1.0)
         if shutdown_event.is_set():
-            print("ADC streamer stopping")
+            print("T4 streamer stopping")
             break
 
     # gpio.cleanup()
+
+
+# def ADC_streamer(frame, frame_event, queue, shutdown_event):
+#     # TODO ADC pin
+#     # gpio.setmode(gpio.BOARD)
+#
+#     while True:
+#         frame_event.wait(timeout=1)
+#         if frame_event.is_set():
+#             # ADC measure
+#             # print("logged ADC")
+#             t = time.time_ns()
+#             with frame.get_lock():
+#                 b = struct.pack(">LQ2s", frame.value, t, np.float16(-1.0).tobytes())
+#                 queue.put(b)
+#             # this specifies one measurement per frame
+#             frame_event.clear()
+#
+#         if shutdown_event.is_set():
+#             print("ADC streamer stopping")
+#             break
+#
+#     # gpio.cleanup()
