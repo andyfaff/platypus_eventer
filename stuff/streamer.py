@@ -44,7 +44,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
 
     gpio.setmode(gpio.BOARD)
     gpio.setup(T0_PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
-    gpio.add_event_detect(T0_PIN, gpio.RISING)
+    gpio.add_event_detect(T0_PIN, gpio.RISING, bouncetime=20)
     gpio.add_event_callback(T0_PIN, callback)
 
     while True:
