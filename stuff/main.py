@@ -98,7 +98,7 @@ class EventStreamer:
         self.shutdown_event.clear()
         self.frame_event.clear()
 
-        self.frame = Value(ctypes.c_uint32)
+        self.frame = Value(ctypes.c_int32, -1)
         self.queue = Queue()
         self.p_writer = Process(target=streamer.writer, args=(stream_loc, self.queue))
         self.p_t0_streamer = Process(

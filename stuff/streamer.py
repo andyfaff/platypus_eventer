@@ -36,7 +36,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
         with frame.get_lock():
             frame.value += 1
             # print(f"frame-{frame.value}")
-            b = struct.pack(">LQ2s", frame.value, t, nan)
+            b = struct.pack(">lQ2s", frame.value, t, nan)
         queue.put(b)
         frame_event.set()
 
@@ -48,58 +48,78 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
     gpio.add_event_callback(T0_PIN, callback)
 
     while True:
-        shutdown_event.wait(1.0)
+        time.sleep(1.0)
+        # shutdown_event.wait(1.0)
         if shutdown_event.is_set():
             print("Shutting down T0")
             break
     gpio.cleanup()
 
 
+# def ADC_streamer(frame, frame_event, queue, shutdown_event):
+#     # only for testing chopper 4 signal. When you use ADC comment this out again
+#     import RPi.GPIO as gpio
+
+#     def _callback(queue, channel):
+#         t = time.time_ns()
+#         # print("T4")
+#         with frame.get_lock():
+#             b = struct.pack(">lQ2s", frame.value, t, np.float16(4).tobytes())
+#         queue.put(b)
+
+#     callback = partial(_callback, queue)
+
+#     gpio.setmode(gpio.BOARD)
+#     gpio.setup(T4_PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
+#     gpio.add_event_detect(T4_PIN, gpio.RISING, bouncetime=20)
+#     gpio.add_event_callback(T4_PIN, callback)
+
+#     while True:
+#         time.sleep(1.0)
+#         # shutdown_event.wait(timeout=1.0)
+#         if shutdown_event.is_set():
+#             print("Shutting down T4")
+#             break
+
+#     gpio.cleanup()
+
+
 def ADC_streamer(frame, frame_event, queue, shutdown_event):
-    # only for testing chopper 4 signal. When you use ADC comment this out again
-    import RPi.GPIO as gpio
+    import spidev
+    spi = spidev.SpiDev()
+    spi.open(0, 0)
+    spi.max_speed_hz=1000000
 
-    def _callback(queue, channel):
-        t = time.time_ns()
-        # print("T4")
-        with frame.get_lock():
-            b = struct.pack(">LQ2s", frame.value, t, np.float16(4).tobytes())
-        queue.put(b)
-
-    callback = partial(_callback, queue)
-
-    gpio.setmode(gpio.BOARD)
-    gpio.setup(T4_PIN, gpio.IN, pull_up_down=gpio.PUD_OFF)
-    gpio.add_event_detect(T4_PIN, gpio.RISING, bouncetime=20)
-    gpio.add_event_callback(T4_PIN, callback)
+    def read_channel(channel):
+        adc = spi.xfer2([1, (8 + channel)<<4, 0])
+        data = ((adc[1] & 3) << 8) + adc[2]
+        return data
+    
+    def convert_volts(data):
+        volts = (data * 3.3) / 1023.
+        return volts
 
     while True:
-        shutdown_event.wait(timeout=1.0)
+        frame_event.wait(timeout=1)
+        # if frame_event.is_set():
+        with frame.get_lock():
+            f = frame.value
+
+        frame_event.clear()
+
+        # 10 samples per frame
+        N = 10
+        for i in range(10):
+            t = time.time_ns()
+            # ADC measure
+            level = read_channel(0)
+            v = convert_volts(level)
+            b = struct.pack(">lQ2s", frame.value, t, np.float16(v).tobytes())
+            queue.put(b)
+            if i == N - 1:
+                break
+            time.sleep(0.004)
+
         if shutdown_event.is_set():
-            print("Shutting down T4")
+            print("ADC streamer stopping")
             break
-
-    gpio.cleanup()
-
-
-# def ADC_streamer(frame, frame_event, queue, shutdown_event):
-#     # TODO ADC pin
-#     # gpio.setmode(gpio.BOARD)
-#
-#     while True:
-#         frame_event.wait(timeout=1)
-#         if frame_event.is_set():
-#             # ADC measure
-#             # print("logged ADC")
-#             t = time.time_ns()
-#             with frame.get_lock():
-#                 b = struct.pack(">LQ2s", frame.value, t, np.float16(-1.0).tobytes())
-#                 queue.put(b)
-#             # this specifies one measurement per frame
-#             frame_event.clear()
-#
-#         if shutdown_event.is_set():
-#             print("ADC streamer stopping")
-#             break
-#
-#     # gpio.cleanup()
