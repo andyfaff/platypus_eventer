@@ -1,4 +1,5 @@
 import urllib.request
+from pathlib import Path
 
 
 def parse_status(txt):
@@ -46,4 +47,10 @@ class Status:
     def __call__(self):
         with urllib.request.urlopen(self.url, timeout=5) as response:
             txt = response.read().decode("UTF-8")
+        return txt
+
+    def from_file(self, pth, dataset=0):
+        pth = Path(pth)
+        with open(pth / f"DATA_{dataset}" / "final_state.txt", "r") as f:
+            txt = "".join(f.readlines())
         return txt

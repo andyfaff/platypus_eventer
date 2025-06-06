@@ -19,7 +19,7 @@ class State:
         status, units = parse_status(response)
         self.dct = {}
         self.dct.update(status)
-    
+
     @property
     def DAQ(self):
         return self.dct["DAQ"]

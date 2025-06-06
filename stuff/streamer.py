@@ -86,17 +86,18 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
 
 def ADC_streamer(frame, frame_event, queue, shutdown_event):
     import spidev
+
     spi = spidev.SpiDev()
     spi.open(0, 0)
-    spi.max_speed_hz=1000000
+    spi.max_speed_hz = 1000000
 
     def read_channel(channel):
-        adc = spi.xfer2([1, (8 + channel)<<4, 0])
+        adc = spi.xfer2([1, (8 + channel) << 4, 0])
         data = ((adc[1] & 3) << 8) + adc[2]
         return data
-    
+
     def convert_volts(data):
-        volts = (data * 3.3) / 1023.
+        volts = (data * 3.3) / 1023.0
         return volts
 
     while True:
@@ -118,7 +119,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
             queue.put(b)
             if i == N - 1:
                 break
-            time.sleep(0.004)
+        #     time.sleep(0.004)
 
         if shutdown_event.is_set():
             print("ADC streamer stopping")
