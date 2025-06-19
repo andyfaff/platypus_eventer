@@ -1,0 +1,126 @@
+HM-Host: das3-platypus.nbi.ansto.gov.au
+npvmhosts: 1
+use_shm_pvm: 0
+Server_Version: 2.17.1.2
+Filler_Version_Host_0: 2.17.1.2
+srv_nhost_selected_ext: -1
+srv_super_user_block_control_config_user: 0
+srv_super_user_block_control_config_auto: 0
+srv_client_index: 8
+srv_config_control_index: 2
+srv_config_control_released: 0
+srv_config_control_release_time: 1
+srv_config_control_auto_acquire: 1
+DAE_type: CAEN DT5740
+Filler_Status: OK
+Server_Status: OK
+DO_DAQ_CMD: 1
+DO_DAQ_ACK: 1
+DAQ_PAUSE_CMD: 1
+DAQ_PAUSE_ACK: 0
+DAQ: Pausing
+DAQ_dirname: DAQ_2025-06-19T11-36-57
+DATASET_number: 0
+OAT_NXC: 1
+OAT_NXC_EFF: 1
+OAT_NYC: 1024
+OAT_NYC_EFF: 1024
+OAT_NTC: 1000
+OAT_NTC_EFF: 1000
+current_frame: 239
+total_frames: 240
+Current_Period: 0
+Maximum_Period: 0
+current_server_time: 1750297031
+acq_start_time_t: 1750297017
+acq_stop_time_t: 0
+dataset_start_time_t: 1750297020.023683
+acqs_since_boot: 3404
+acq_all_sec: 4901376.229657
+acq_all_active_sec: 0.000000
+acq_curr_sec: 10.438998
+acq_curr_active_sec: 0.000000
+acq_dataset_active_sec: 10.002729
+num_events_acquired: 4617
+num_events_to_hfp: 4445
+num_events_below_energy_threshold: 0
+num_events_outside_oat_x: 0
+num_events_outside_oat_y: 0
+num_events_outside_oat_t: 6
+num_events_inside_oat_xyt: 4439
+num_events_filled_to_histo: 4439
+num_events_filled_to_count_ROI: 0
+frame_deassert_time_num: 0
+frame_deassert_time_0: -0.000 ms
+frame_deassert_time_1: -0.000 ms
+frame_deassert_time_2: -0.000 ms
+frame_deassert_time: -0.000 ms
+total_events_this_frame: 0 events
+ratemap_xy_total: 0.000000 events/sec
+ratemap_xy_max_bin: 0.000000 events/sec
+raw_histo_xmin: 0
+raw_histo_xmax: 31
+raw_histo_ymin: 0
+raw_histo_ymax: 1023
+raw_histo_emax: 1023
+raw_histo_t_scale: 0 ns/bin
+raw_histo_t_bins: 100
+raw_histo_taux_scale: 0 ns/bin
+raw_histo_taux_bins: 100
+raw_total_histo_total_events: 4445 events
+raw_total_histo_max_bin_events: 37 events
+raw_frame_histo_total_events: 0 events
+raw_frame_histo_max_bin_events: 0 events
+Hard_Veto_Last_Frame: 0
+Frame_Frequency_Veto_Last_Frame: 0
+Soft_Veto_1: 0
+Soft_Veto_2: 0
+Soft_Veto_3: 0
+Soft_Veto_4: 0
+Soft_Veto_DAQ: 0
+Overall_Veto_Status: 0
+BM1_Status: STOPPED
+BM1_Runtime: 9.535953 sec
+BM1_Counts: 72259 counts
+BM1_Event_Rate: 7538.3198 events/sec
+BM2_Status: DISABLED
+BM2_Runtime: 0.000000 sec
+BM2_Counts: 0 counts
+BM2_Event_Rate: 0.0000 events/sec
+BM3_Status: DISABLED
+BM3_Runtime: 0.000000 sec
+BM3_Counts: 0 counts
+BM3_Event_Rate: 0.0000 events/sec
+BM4_Status: DISABLED
+BM4_Runtime: 0.000000 sec
+BM4_Counts: 0 counts
+BM4_Event_Rate: 0.0000 events/sec
+BM5_Status: DISABLED
+BM5_Runtime: 0.000000 sec
+BM5_Counts: 0 counts
+BM5_Event_Rate: 0.0000 events/sec
+BM6_Status: DISABLED
+BM6_Runtime: 0.000000 sec
+BM6_Counts: 0 counts
+BM6_Event_Rate: 0.0000 events/sec
+BM7_Status: DISABLED
+BM7_Runtime: 0.000000 sec
+BM7_Counts: 0 counts
+BM7_Event_Rate: 0.0000 events/sec
+BM8_Status: DISABLED
+BM8_Runtime: 0.000000 sec
+BM8_Counts: 0 counts
+BM8_Event_Rate: 0.0000 events/sec
+detector_protect_global_rate: 443.173126 events/sec
+detector_protect_max_bin_rate: 3.405092 events/sec
+detector_protect_trip_bin_rate: 15000.000000 events/sec
+detector_protect_trip_bin_rate_exceeded: no
+detector_protect_last_trip_start_time_t: 1750121533
+detector_protect_last_trip_stop_time_t: 1750121533
+detector_protect_last_trip_peak_global_rate: 0.000000 events/sec
+detector_protect_last_trip_peak_local_rate: 0.000000 events/sec
+detector_protect_last_trip_peak_num_pixels: 0
+detector_protect_num_trip: 22
+detector_protect_num_trip_ack: 22
+no_count_time_exceeded: no
+detector_protect_fast_shutter: Openable
