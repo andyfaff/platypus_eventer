@@ -141,6 +141,7 @@ def main(user, password="", pth=None):
     actual_dataset_number = 0
     dataset_number_being_written = 0
     LAST_DAQ_DIRNAME = ""
+    STATE_REQUIRES_UPDATE = True
 
     while True:
         _s = s()
@@ -154,6 +155,11 @@ def main(user, password="", pth=None):
             else:
                 # dataset number is correct
                 update_period = 2.0
+            if STATE_REQUIRES_UPDATE:
+                # Update state.txt file when the acquisition has finally started
+                with open(stream_loc / "state.txt", "w") as f:
+                    f.write(_s)
+                STATE_REQUIRES_UPDATE = False
 
         if streamer.currently_streaming and (
             not (state.started or state.starting)
@@ -167,6 +173,7 @@ def main(user, password="", pth=None):
 
         if (state.started or state.starting) and not streamer.currently_streaming:
             # time to start new directories and start streaming
+            # textstatus does not fully update until the acquisition has started.
             if LAST_DAQ_DIRNAME != state.DAQ_dirname:
                 # totally new dataset
                 LAST_DAQ_DIRNAME = state.DAQ_dirname
@@ -192,6 +199,7 @@ def main(user, password="", pth=None):
             with open(stream_loc / "state.txt", "w") as f:
                 f.write(_s)
 
+            STATE_REQUIRES_UPDATE = True
             streamer.start(stream_loc)
             update_period = 1.0
 
