@@ -1,4 +1,5 @@
 from multiprocessing import Process, Queue, Value, Event
+import multiprocessing as mp
 import ctypes
 import time
 from pathlib import Path
@@ -17,6 +18,7 @@ url = "http://localhost:60001/admin/textstatus.egi"
 class State:
     def __init__(self, response):
         status, units = parse_status(response)
+        self.response = response
         self.dct = {}
         self.dct.update(status)
 
@@ -60,6 +62,8 @@ class EventStreamer:
         self.shutdown_event.set()
 
         if self.p_t0_streamer is not None:
+            # print("::::::::::::::::::::::::::::::::::::::::::::::")
+            # print(self.p_t0_streamer)
             try:
                 self.p_t0_streamer.join()
                 self.p_t0_streamer.close()
@@ -118,8 +122,40 @@ class EventStreamer:
 
 
 def _signal_close(streamer, signal, frame):
-    streamer.stop()
-    sys.exit()
+    if mp.parent_process() is None:
+        streamer.stop()
+        sys.exit()
+
+
+def _create_stream_directory(pth, state, dataset_number_being_written=0):
+    """
+    Creates the streaming directory. Also saves the text status in the
+    streaming directory
+
+    Parameters
+    ----------
+    pth : Path
+        Where to create the streaming directory
+    state : State
+        The state of the histogram server
+    dataset_number_being_written : int
+        Which dataset is currently being streamed    
+
+    Returns
+    -------
+    stream_loc : Path
+        The path of the streaming directory
+    """
+    stream_loc = (
+        pth / state.DAQ_dirname / f"DATA_{dataset_number_being_written}"
+    )
+    stream_loc = stream_loc.resolve()
+    os.makedirs(stream_loc, exist_ok=True)
+    print(f"New sample event file starting, {stream_loc=}")
+    with open(stream_loc / "state.txt", "w") as f:
+        f.write(state.response)
+
+    return stream_loc
 
 
 def main(user, password="", pth=None):
@@ -157,8 +193,11 @@ def main(user, password="", pth=None):
                 update_period = 2.0
             if STATE_REQUIRES_UPDATE:
                 # Update state.txt file when the acquisition has finally started
-                with open(stream_loc / "state.txt", "w") as f:
-                    f.write(_s)
+                stream_loc = _create_stream_directory(
+                    pth,
+                    state,
+                    dataset_number_being_written=dataset_number_being_written
+                )
                 STATE_REQUIRES_UPDATE = False
 
         if streamer.currently_streaming and (
@@ -180,6 +219,8 @@ def main(user, password="", pth=None):
                 dataset_number_being_written = 0
             elif state.started:
                 dataset_number_being_written = state.DATASET_number
+                STATE_REQUIRES_UPDATE = False
+
             elif state.starting:
                 # dataset number probably incremented by one
                 dirs = glob.glob("DATA_*", root_dir=pth / state.DAQ_dirname)
@@ -188,18 +229,14 @@ def main(user, password="", pth=None):
                     dataset_number_being_written = max(nums) + 1
                 else:
                     dataset_number_being_written = 0
+                STATE_REQUIRES_UPDATE = True
 
-            stream_loc = (
-                pth / state.DAQ_dirname / f"DATA_{dataset_number_being_written}"
+            stream_loc = _create_stream_directory(
+                pth,
+                state,
+                dataset_number_being_written=dataset_number_being_written
             )
-            stream_loc = stream_loc.resolve()
 
-            os.makedirs(stream_loc, exist_ok=True)
-            print(f"New sample event file starting, {stream_loc=}")
-            with open(stream_loc / "state.txt", "w") as f:
-                f.write(_s)
-
-            STATE_REQUIRES_UPDATE = True
             streamer.start(stream_loc)
             update_period = 1.0
 
