@@ -16,6 +16,9 @@ url = "http://localhost:60001/admin/textstatus.egi"
 
 
 class State:
+    """
+    Parses the DAS response into dictionary form.
+    """
     def __init__(self, response):
         status, units = parse_status(response)
         self.response = response
@@ -44,6 +47,11 @@ class State:
 
 
 class EventStreamer:
+    """
+    Class for starting/stopping streaming of sample events
+    Creates child Processes for detecting the T0 frame pulse,
+    measuring the sample events, and writing both events to file.
+    """
     def __init__(self):
         self.stream_loc = None
 
@@ -159,6 +167,18 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
 
 
 def main(user, password="", pth=None):
+    """
+    Starts the streaming process for sample events
+
+    Parameters
+    ----------
+    user : str
+        User name for the DAS server
+    password: str
+        Password for the DAS server
+    pth : str
+        Parent director for all the streamed data
+    """
     if pth is None:
         pth = Path.cwd()
     else:
