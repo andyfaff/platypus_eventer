@@ -239,7 +239,6 @@ def main(user, password="", pth=None):
                 dataset_number_being_written = 0
             elif state.started:
                 dataset_number_being_written = state.DATASET_number
-                STATE_REQUIRES_UPDATE = False
 
             elif state.starting:
                 # dataset number probably incremented by one
@@ -249,8 +248,8 @@ def main(user, password="", pth=None):
                     dataset_number_being_written = max(nums) + 1
                 else:
                     dataset_number_being_written = 0
-                STATE_REQUIRES_UPDATE = True
 
+            STATE_REQUIRES_UPDATE = True
             stream_loc = _create_stream_directory(
                 pth,
                 state,
