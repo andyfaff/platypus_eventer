@@ -49,8 +49,8 @@ class Status:
             txt = response.read().decode("UTF-8")
         return txt
 
-    def from_file(self, pth, dataset=0):
-        pth = Path(pth)
-        with open(pth / f"DATASET_{dataset}" / "final_state.txt", "r") as f:
+    def from_file(self, daq_dirname, dataset=0, pth="."):
+        loc = Path(pth) / daq_dirname / f"DATASET_{dataset}"
+        with open(loc / "final_state.txt", "r") as f:
             txt = "".join(f.readlines())
         return txt
