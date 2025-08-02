@@ -7,6 +7,7 @@ import struct
 
 T0_PIN = 11
 T4_PIN = 13
+_struct = ">lQ2s"
 
 
 def writer(pth, queue):
@@ -36,7 +37,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
         with frame.get_lock():
             frame.value += 1
             # print(f"frame-{frame.value}")
-            b = struct.pack(">lQ2s", frame.value, t, nan)
+            b = struct.pack(_struct, frame.value, t, nan)
         queue.put(b)
         frame_event.set()
 
@@ -64,7 +65,7 @@ def ADC_streamer2(frame, frame_event, queue, shutdown_event):
         t = time.time_ns()
         # print("T4")
         with frame.get_lock():
-            b = struct.pack(">lQ2s", frame.value, t, np.float16(4).tobytes())
+            b = struct.pack(_struct, frame.value, t, np.float16(4).tobytes())
         queue.put(b)
 
     callback = partial(_callback, queue)
@@ -115,7 +116,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
             # ADC measure
             level = read_channel(0)
             v = convert_volts(level)
-            b = struct.pack(">lQ2s", f, t, np.float16(v).tobytes())
+            b = struct.pack((_struct, f, t, np.float16(v).tobytes())
             queue.put(b)
             if i == N - 1:
                 break
