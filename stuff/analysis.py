@@ -5,7 +5,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 from status import Status, parse_status
 from refnx.reduce.event import events
-from streamer import _struct
+from streamer import _struct, _struct_sz
 
 
 def _event_sef(buf):
@@ -31,9 +31,13 @@ def predicted_frame(daq_dirname, dataset=0, pth="."):
     status = parse_status(s.from_file(daq_dirname, dataset=dataset, pth=pth))[0]
     dataset_start_time_t = status['dataset_start_time_t']
 
+    _events = []
     with gzip.GzipFile(str(loc / "EOS.gz"), 'rb') as f:
-        buf = f.read(1_000_000_000)
-
-    _sef_events = _event_sef(buf)
-    offset = _predicted_frame(_sef_events, dataset_start_time_t)
+        while True:
+            buf = f.read(_struct_sz * 32_768)
+            if not buf:
+                break
+            _sef_events = _event_sef(buf)
+            _events.extend(_sef_events)
+    offset = _predicted_frame(_events, dataset_start_time_t)
     return offset

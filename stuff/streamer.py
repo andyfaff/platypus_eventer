@@ -8,6 +8,7 @@ import struct
 T0_PIN = 11
 T4_PIN = 13
 _struct = ">lQ2s"
+_struct_sz = 14
 
 
 def writer(pth, queue):
