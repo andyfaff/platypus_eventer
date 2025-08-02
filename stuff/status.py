@@ -51,6 +51,6 @@ class Status:
 
     def from_file(self, pth, dataset=0):
         pth = Path(pth)
-        with open(pth / f"DATA_{dataset}" / "final_state.txt", "r") as f:
+        with open(pth / f"DATASET_{dataset}" / "final_state.txt", "r") as f:
             txt = "".join(f.readlines())
         return txt

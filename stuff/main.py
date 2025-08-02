@@ -99,7 +99,7 @@ class EventStreamer:
 
         if DATASET_number is not None and final_state is not None:
             parent = self.stream_loc.parent
-            new_name = parent / f"DATA_{DATASET_number}"
+            new_name = parent / f"DATASET_{DATASET_number}"
             self.stream_loc.rename(new_name)
             self.stream_loc = new_name
             with open(self.stream_loc / "final_state.txt", "w") as f:
@@ -155,7 +155,7 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
         The path of the streaming directory
     """
     stream_loc = (
-        pth / state.DAQ_dirname / f"DATA_{dataset_number_being_written}"
+        pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
     )
     stream_loc = stream_loc.resolve()
     os.makedirs(stream_loc, exist_ok=True)
@@ -242,7 +242,7 @@ def main(user, password="", pth=None):
 
             elif state.starting:
                 # dataset number probably incremented by one
-                dirs = glob.glob("DATA_*", root_dir=pth / state.DAQ_dirname)
+                dirs = glob.glob("DATASET_*", root_dir=pth / state.DAQ_dirname)
                 nums = [int(s.split(sep="_")[-1]) for s in dirs]
                 if len(nums):
                     dataset_number_being_written = max(nums) + 1
