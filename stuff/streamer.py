@@ -116,7 +116,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
             # ADC measure
             level = read_channel(0)
             v = convert_volts(level)
-            b = struct.pack((_struct, f, t, np.float16(v).tobytes())
+            b = struct.pack(_struct, f, t, np.float16(v).tobytes())
             queue.put(b)
             if i == N - 1:
                 break
