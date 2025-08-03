@@ -183,7 +183,7 @@ def main(user, password="", pth=None):
                 update_period = 2.0
             if STATE_REQUIRES_UPDATE:
                 # Update state.txt file when the acquisition has finally started
-                stream_loc = _create_stream_directory(
+                _create_stream_directory(
                     pth,
                     state,
                     dataset_number_being_written=dataset_number_being_written,
