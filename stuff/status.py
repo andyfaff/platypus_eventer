@@ -35,7 +35,46 @@ def _parse_val(v):
     return v
 
 
+class State:
+    """
+    Parses the DAS response into dictionary form.
+    """
+
+    def __init__(self, response):
+        status, units = parse_status(response)
+        self.response = response
+        self.dct = {}
+        self.dct.update(status)
+
+    @property
+    def DAQ(self):
+        return self.dct["DAQ"]
+
+    @property
+    def started(self):
+        return self.dct["DAQ"] == "Started"
+
+    @property
+    def starting(self):
+        return self.dct["DAQ"] == "Starting"
+
+    @property
+    def DAQ_dirname(self):
+        return self.dct["DAQ_dirname"]
+
+    @property
+    def DATASET_number(self):
+        return self.dct["DATASET_number"]
+
+    @property
+    def dataset_start_time_t(self):
+        return self.dct["dataset_start_time_t"]
+
+
 class Status:
+    """
+    Acquires the DAS textstatus page
+    """
     def __init__(self, user, password="", url=""):
         self.url = url
         self.passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()

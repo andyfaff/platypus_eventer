@@ -8,42 +8,11 @@ import glob
 import signal
 import sys
 from functools import partial
-from status import Status, parse_status
+from status import Status, State
 import streamer
 
 
 url = "http://localhost:60001/admin/textstatus.egi"
-
-
-class State:
-    """
-    Parses the DAS response into dictionary form.
-    """
-    def __init__(self, response):
-        status, units = parse_status(response)
-        self.response = response
-        self.dct = {}
-        self.dct.update(status)
-
-    @property
-    def DAQ(self):
-        return self.dct["DAQ"]
-
-    @property
-    def started(self):
-        return self.dct["DAQ"] == "Started"
-
-    @property
-    def starting(self):
-        return self.dct["DAQ"] == "Starting"
-
-    @property
-    def DAQ_dirname(self):
-        return self.dct["DAQ_dirname"]
-
-    @property
-    def DATASET_number(self):
-        return self.dct["DATASET_number"]
 
 
 class EventStreamer:
@@ -52,6 +21,7 @@ class EventStreamer:
     Creates child Processes for detecting the T0 frame pulse,
     measuring the sample events, and writing both events to file.
     """
+
     def __init__(self):
         self.stream_loc = None
 
@@ -147,16 +117,14 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
     state : State
         The state of the histogram server
     dataset_number_being_written : int
-        Which dataset is currently being streamed    
+        Which dataset is currently being streamed
 
     Returns
     -------
     stream_loc : Path
         The path of the streaming directory
     """
-    stream_loc = (
-        pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
-    )
+    stream_loc = pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
     stream_loc = stream_loc.resolve()
     os.makedirs(stream_loc, exist_ok=True)
     print(f"New sample event file starting, {stream_loc=}")
@@ -216,7 +184,7 @@ def main(user, password="", pth=None):
                 stream_loc = _create_stream_directory(
                     pth,
                     state,
-                    dataset_number_being_written=dataset_number_being_written
+                    dataset_number_being_written=dataset_number_being_written,
                 )
                 STATE_REQUIRES_UPDATE = False
 
@@ -251,9 +219,7 @@ def main(user, password="", pth=None):
 
             STATE_REQUIRES_UPDATE = True
             stream_loc = _create_stream_directory(
-                pth,
-                state,
-                dataset_number_being_written=dataset_number_being_written
+                pth, state, dataset_number_being_written=dataset_number_being_written
             )
 
             streamer.start(stream_loc)
