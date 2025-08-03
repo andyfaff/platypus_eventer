@@ -8,8 +8,9 @@ import struct
 T0_PIN = 11
 T4_PIN = 13
 
-# frame    time                  channel        voltage
-# long     unsigned long long    unsigned char  float16
+# frame | time               | channel       | voltage
+# ------|--------------------|---------------|--------
+# long  | unsigned long long | unsigned char | float16
 #
 # time is in ns since epoch
 # channel = -1  TO
