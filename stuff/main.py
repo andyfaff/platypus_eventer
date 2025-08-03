@@ -2,6 +2,7 @@ from multiprocessing import Process, Queue, Value, Event
 import multiprocessing as mp
 import ctypes
 import time
+import configparser
 from pathlib import Path
 import os
 import glob
@@ -10,9 +11,6 @@ import sys
 from functools import partial
 from status import Status, State
 import streamer
-
-
-url = "http://localhost:60001/admin/textstatus.egi"
 
 
 class EventStreamer:
@@ -145,14 +143,18 @@ def main(user, password="", pth=None):
     password: str
         Password for the DAS server
     pth : str
-        Parent director for all the streamed data
+        Parent directory for all the streamed data
     """
     if pth is None:
         pth = Path.cwd()
     else:
         pth = Path(pth)
 
-    s = Status(user, password=password, url=url)
+    config = configparser.ConfigParser()
+    config.read(str(pth / "config.ini"))
+    das_server = config.get("url", "das")
+
+    s = Status(user, password=password, url=das_server)
     old_state = State(s())
     streamer = EventStreamer()
 
