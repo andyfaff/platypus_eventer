@@ -17,8 +17,8 @@ T4_PIN = 13
 # channel = -4  subsidiary chopper (for checking if frame offset is correct)
 # channel >  0  voltage channel
 # voltage measured on specific channel
-_struct = ">lQb2s"
-_struct_sz = 15
+_struct = "<lQbe"
+_struct_sz = struct.calcsize(_struct)
 
 
 def writer(pth, queue):
