@@ -34,7 +34,7 @@ def predicted_frame(daq_dirname, dataset=0, pth="."):
     _events = []
     with gzip.GzipFile(str(loc / "EOS.gz"), "rb") as f:
         while True:
-            buf = f.read(_struct_sz * 32_768)
+            buf = f.read(_struct_sz * 1_092)
             if not buf:
                 break
             _sef_events = _event_sef(buf)
