@@ -86,7 +86,7 @@ class EventStreamer:
             args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
         )
         self.p_ADC_streamer = Process(
-            target=streamer.ADC_streamer2,
+            target=streamer.ADC_streamer,
             args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
         )
 

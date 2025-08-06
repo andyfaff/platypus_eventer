@@ -36,7 +36,7 @@ def writer(pth, queue):
             # queue.task_done()
 
 
-nan = np.float16(np.nan).tobytes()
+nan = np.float16(np.nan)
 
 
 def T0_streamer(frame, frame_event, queue, shutdown_event):
@@ -120,18 +120,20 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
 
         frame_event.clear()
 
-        # 10 samples per frame
-        N = 10
-        for i in range(10):
+        # 1 samples per frame
+        N = 1
+        for i in range(N):
             t = time.time_ns()
             # ADC measure
             level = read_channel(0)
             v = convert_volts(level)
-            b = struct.pack(_struct, f, t, 1, np.float16(v).tobytes())
+            # voltage divider 8.05 kOhm, 17.92 kOhm = 0.31 divider
+            # measured at 0.306 using 10 V supply and voltmeter
+            b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
             if i == N - 1:
                 break
-            time.sleep(0.004)
+            time.sleep(0.02)
 
         if shutdown_event.is_set():
             print("ADC streamer stopping")
