@@ -25,12 +25,8 @@ def _predicted_frame(ev, dataset_start_time_t):
     return nearest_time
 
 
-def predicted_frame(daq_dirname, dataset=0, pth="."):
-    s = Status("manager")
+def read_events(daq_dirname, dataset=0, pth="."):
     loc = Path(pth) / daq_dirname / f"DATASET_{dataset}"
-    state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))[0]
-    dataset_start_time_t = state.dataset_start_time_t
-
     _events = []
     with gzip.GzipFile(str(loc / "EOS.gz"), "rb") as f:
         while True:
@@ -39,5 +35,15 @@ def predicted_frame(daq_dirname, dataset=0, pth="."):
                 break
             _sef_events = _event_sef(buf)
             _events.extend(_sef_events)
+    return _events
+
+
+def predicted_frame(daq_dirname, dataset=0, pth="."):
+    s = Status("manager")
+    state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))[0]
+    dataset_start_time_t = state.dataset_start_time_t
+
+    _events = read_events(daq_dirname, dataset=dataset, pth=pth)
+
     offset = _predicted_frame(_events, dataset_start_time_t)
     return offset
