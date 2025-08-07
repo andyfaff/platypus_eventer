@@ -75,7 +75,7 @@ class Status:
     """
     Acquires the DAS textstatus page
     """
-    def __init__(self, user, password="", url=""):
+    def __init__(self, user="manager", password="", url=""):
         self.url = url
         self.passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
         self.passman.add_password(None, self.url, user, password)

@@ -132,7 +132,7 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
     return stream_loc
 
 
-def main(user, password="", pth=None):
+def main(user="manager", password="", pth=None):
     """
     Starts the streaming process for sample events
 
@@ -154,7 +154,7 @@ def main(user, password="", pth=None):
     config.read(str(pth / "config.ini"))
     das_server = config.get("url", "das")
 
-    s = Status(user, password=password, url=das_server)
+    s = Status(user=user, password=password, url=das_server)
     old_state = State(s())
     streamer = EventStreamer()
 
@@ -233,4 +233,4 @@ def main(user, password="", pth=None):
 
 if __name__ == "__main__":
     print(sys.argv)
-    main(sys.argv[1], password=sys.argv[2], pth=sys.argv[3])
+    main(user=sys.argv[1], password=sys.argv[2], pth=sys.argv[3])

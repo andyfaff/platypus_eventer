@@ -17,7 +17,7 @@ def _event_sef(buf):
 def _predicted_frame(ev, dataset_start_time_t):
     # figures out which frame in the SEF corresponds to the first frame
     # in the NEF
-    t0 = [ev[i][1] for i in range(len(ev)) if ev[i][-1] == b"\x00~"]
+    t0 = [ev[i][1] for i in range(len(ev)) if ev[i][2] == -1]
 
     idx = np.searchsorted(np.array(t0) / 1e9, dataset_start_time_t)
     nearest_time = np.argmin(((np.array(t0)) / 1e9 - dataset_start_time_t) ** 2)
@@ -39,8 +39,8 @@ def read_events(daq_dirname, dataset=0, pth="."):
 
 
 def predicted_frame(daq_dirname, dataset=0, pth="."):
-    s = Status("manager")
-    state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))[0]
+    s = Status()
+    state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))
     dataset_start_time_t = state.dataset_start_time_t
 
     _events = read_events(daq_dirname, dataset=dataset, pth=pth)
