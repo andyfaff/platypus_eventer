@@ -9,6 +9,8 @@ authors = [
   {name = "Andrew Nelson", email = "andyfaff@gmail.com"},
 ]
 license = "BSD-3-Clause"
+[project.scripts]
+platypus_eventer-cli = "platypus_eventer.main:_main_entry"
 
 [build-system]
 requires = [

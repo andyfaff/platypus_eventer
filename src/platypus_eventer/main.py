@@ -9,8 +9,8 @@ import glob
 import signal
 import sys
 from functools import partial
-from status import Status, State
-import streamer
+from platypus_eventer.status import Status, State
+import platypus_eventer.streamer as streamer
 
 
 class EventStreamer:
@@ -229,6 +229,11 @@ def main(user="manager", password="", pth=None):
 
         old_state = state
         time.sleep(update_period)
+
+
+def _main_entry():
+    print(sys.argv)
+    main(user=sys.argv[1], password=sys.argv[2], pth=sys.argv[3])
 
 
 if __name__ == "__main__":

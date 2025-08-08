@@ -2,9 +2,9 @@ import gzip
 import numpy as np
 import struct
 from pathlib import Path
-from status import Status, State
+from platypus_eventer.status import Status, State
 from refnx.reduce.event import events
-from streamer import _struct, _struct_sz
+from platypus_eventer.streamer import _struct, _struct_sz
 
 
 def _event_sef(buf):
