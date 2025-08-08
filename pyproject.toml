@@ -1,0 +1,17 @@
+[project]
+name = "platypus-eventer"
+version = "2025.08.08"
+dependencies = [
+    "numpy",
+    "refnx",
+]
+authors = [
+  {name = "Andrew Nelson", email = "andyfaff@gmail.com"},
+]
+license = "BSD-3-Clause"
+
+[build-system]
+requires = [
+    "setuptools",
+]
+build-backend = "setuptools.build_meta"
