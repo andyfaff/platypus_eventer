@@ -107,7 +107,7 @@ def identify_glitch(t_f, frame_frequency, window=5):
     return glitch
 
 
-def deglitch(f_f, t_f, f_v, t_v, frame_frequency, window=5):
+def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5):
     """
     Removes glitches caused by missed T0 pulses in a Sample Event File
     train. Glitches in predicted frame times are replaced with model
@@ -123,6 +123,8 @@ def deglitch(f_f, t_f, f_v, t_v, frame_frequency, window=5):
         frame when sample environment voltage was measured
     t_v: array-like
         time of when sample environment voltage was measured
+    voltage: array-like
+        measured sample environment voltage
     frame_frequency: float
         frequency of T0 signal generation
     window: int
@@ -164,7 +166,7 @@ def deglitch(f_f, t_f, f_v, t_v, frame_frequency, window=5):
             )
             - 1
         )
-        print(f"{num_new_frames=}, {first_bad=}, {window_size=}")
+        # print(f"{num_new_frames=}, {first_bad=}, {window_size=}")
 
         # remove bad frames
         f_f = np.delete(f_f, slice(first_bad, first_good_after_glitch))
@@ -183,6 +185,7 @@ def deglitch(f_f, t_f, f_v, t_v, frame_frequency, window=5):
         )
         f_v = np.delete(f_v, _idx)
         t_v = np.delete(t_v, _idx)
+        voltage = np.delete(voltage, _idx)
         # renumber voltage frames after the glitch
         _idx = np.argwhere(first_good_after_glitch <= f_v)
         f_v[_idx] += num_new_frames - window_size
@@ -193,4 +196,4 @@ def deglitch(f_f, t_f, f_v, t_v, frame_frequency, window=5):
         f_f = np.insert(f_f, first_bad, new_frames)
         t_f = np.insert(t_f, first_bad, new_times)
 
-    return f_f, t_f, f_v, t_v
+    return f_f, t_f, f_v, t_v, voltage
