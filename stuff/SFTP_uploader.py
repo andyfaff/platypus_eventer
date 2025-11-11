@@ -7,7 +7,7 @@ from datetime import datetime
 
 
 # === CONFIGURATION ===
-LOCAL_BASE_DIR = "."
+LOCAL_BASE_DIR = os.getcwd()
 REMOTE_BASE_DIR = "/home/quokka/event/SEF"
 KNOWN_DIRS_FILE = "uploaded_dirs.txt"
 
@@ -31,7 +31,8 @@ def upload_directory(sftp, local_dir, remote_dir):
     for root, dirs, files in os.walk(local_dir):
         rel_path = os.path.relpath(root, local_dir)
         remote_path = os.path.join(remote_dir, rel_path).replace("\\", "/")
-
+        # remove /.
+        remote_path = remote_path.rstrip("/.")
         # Ensure remote directory exists
         try:
             sftp.stat(remote_path)
