@@ -48,7 +48,7 @@ class State:
         self.dct.update(status)
 
     @property
-    def DAQ(self):
+    def DAQ(self):renice
         return self.dct["DAQ"]
 
     @property
