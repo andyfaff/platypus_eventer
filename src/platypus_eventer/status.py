@@ -1,5 +1,6 @@
 import urllib.request
 from pathlib import Path
+import datetime
 
 
 def parse_status(txt):
@@ -84,10 +85,16 @@ class Status:
         urllib.request.install_opener(self.opener)
 
     def __call__(self):
-        with urllib.request.urlopen(self.url, timeout=5) as response:
-            txt = response.read().decode("UTF-8")
-        return txt
-
+        try:
+            with urllib.request.urlopen(self.url, timeout=5) as response:
+                txt = response.read().decode("UTF-8")
+            return txt
+        except TimeoutError:
+            current_datetime = datetime.now()
+            iso_formatted_time = current_datetime.isoformat()
+            print(f"Status timed out: {iso_formatted_time}")
+            return None
+    
     def from_file(self, daq_dirname, dataset=0, pth="."):
         loc = Path(pth) / daq_dirname / f"DATASET_{dataset}"
         with open(loc / "final_state.txt", "r") as f:

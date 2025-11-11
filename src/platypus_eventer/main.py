@@ -171,6 +171,11 @@ def main(user="manager", password="", pth=None):
 
     while True:
         _s = s()
+        if _s is None:
+            # getting status failed for some reason.
+            time.sleep(update_period)
+            continue
+
         state = State(_s)
 
         if state.started:

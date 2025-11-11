@@ -4,6 +4,9 @@ import paramiko
 from pathlib import Path
 import getpass
 from datetime import datetime
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler, FileCreatedEvent, DirCreatedEvent
+
 
 
 # === CONFIGURATION ===
@@ -15,8 +18,6 @@ SFTP_HOST = "ics1-quokka.nbi.ansto.gov.au"
 SFTP_PORT = 22
 SFTP_USER = getpass.getpass("Username:")
 SFTP_PASS = getpass.getpass("Password:")
-
-SCAN_INTERVAL = 60  # seconds between scans
 
 
 def connect_sftp():
@@ -46,36 +47,20 @@ def upload_directory(sftp, local_dir, remote_dir):
             sftp.put(local_file, remote_file)
 
 
-def load_known_dirs():
-    """Load the list of directories that were already uploaded."""
-    if not os.path.exists(KNOWN_DIRS_FILE):
-        return set()
-    with open(KNOWN_DIRS_FILE, "r") as f:
-        return set(line.strip() for line in f if line.strip())
+class MyEventHandler(FileSystemEventHandler):
+    self.last_time = time.time()
 
+    def on_created(self, event):
+        self.upload(event)
 
-def save_known_dirs(known_dirs):
-    """Save updated list of uploaded directories."""
-    with open(KNOWN_DIRS_FILE, "w") as f:
-        for d in sorted(known_dirs):
-            f.write(d + "\n")
+    def on_modified(self, event):
+        self.upload(event)
 
-
-def main():
-    known_dirs = load_known_dirs()
-    print(f"Loaded {len(known_dirs)} known directories.")
-
-    while True:
-        current_dirs = {
-            str(p) for p in Path(LOCAL_BASE_DIR).rglob("DAQ*") if p.is_dir()
-        }
-        new_dirs = current_dirs - known_dirs
-        current_datetime = datetime.now()
-        iso_formatted_time = current_datetime.isoformat()
-        print(iso_formatted_time)
-        if new_dirs:
-            print(f"Found new directories.: {new_dirs}")
-
+    def upload(self, event):
+        if time.time() > self.last_time + 60:
+            self.last_time = time.time()
+            pth = Path(event.src_path)
+            top_dir = pth.parts[0]
             try:
                 sftp = connect_sftp()
                 for local_dir in new_dirs:
@@ -84,13 +69,52 @@ def main():
                     upload_directory(sftp, local_dir, remote_dir)
                     known_dirs.add(local_dir)
                 sftp.close()
-                save_known_dirs(known_dirs)
             except Exception as e:
                 print(f"[ERROR] Upload failed: {e}")
-        else:
-            print("No new directories found.")
 
-        time.sleep(SCAN_INTERVAL)
+
+
+def main():
+    event_handler = MyEventHandler()
+    observer = Observer()
+    observer.schedule(event_handler, ".", recursive=True)
+    observer.start()
+    try:
+        while True:
+            time.sleep(1)
+    finally:
+        observer.stop()
+        observer.join()
+        
+    # known_dirs = load_known_dirs()
+    # print(f"Loaded {len(known_dirs)} known directories.")
+
+    # while True:
+    #     current_dirs = {
+    #         str(p) for p in Path(LOCAL_BASE_DIR).rglob("DAQ*") if p.is_dir()
+    #     }
+    #     new_dirs = current_dirs - known_dirs
+    #     current_datetime = datetime.now()
+    #     iso_formatted_time = current_datetime.isoformat()
+    #     print(iso_formatted_time)
+    #     if new_dirs:
+    #         print(f"Found new directories.: {new_dirs}")
+
+    #         try:
+    #             sftp = connect_sftp()
+    #             for local_dir in new_dirs:
+    #                 rel_path = os.path.relpath(local_dir, LOCAL_BASE_DIR)
+    #                 remote_dir = os.path.join(REMOTE_BASE_DIR, rel_path).replace("\\", "/")
+    #                 upload_directory(sftp, local_dir, remote_dir)
+    #                 known_dirs.add(local_dir)
+    #             sftp.close()
+    #             save_known_dirs(known_dirs)
+    #         except Exception as e:
+    #             print(f"[ERROR] Upload failed: {e}")
+    #     else:
+    #         print("No new directories found.")
+
+    #     time.sleep(SCAN_INTERVAL)
 
 
 if __name__ == "__main__":
