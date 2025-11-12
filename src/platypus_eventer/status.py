@@ -48,7 +48,7 @@ class State:
         self.dct.update(status)
 
     @property
-    def DAQ(self):renice
+    def DAQ(self):
         return self.dct["DAQ"]
 
     @property
@@ -76,6 +76,7 @@ class Status:
     """
     Acquires the DAS textstatus page
     """
+
     def __init__(self, user="manager", password="", url=""):
         self.url = url
         self.passman = urllib.request.HTTPPasswordMgrWithDefaultRealm()
@@ -94,7 +95,7 @@ class Status:
             iso_formatted_time = current_datetime.isoformat()
             print(f"Status timed out: {iso_formatted_time}")
             return None
-    
+
     def from_file(self, daq_dirname, dataset=0, pth="."):
         loc = Path(pth) / daq_dirname / f"DATASET_{dataset}"
         with open(loc / "final_state.txt", "r") as f:
