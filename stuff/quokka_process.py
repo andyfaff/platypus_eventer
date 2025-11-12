@@ -12,14 +12,14 @@ from platypus_eventer.status import State, Status
 
 
 def process_file(
-        nx,
-        frame_frequency,
-        oscillation_period,
-        subframe_bin_sz,
-        nbins,
-        pth,
-        nef_pth,
-        sef_pth
+    nx,
+    frame_frequency,
+    oscillation_period,
+    subframe_bin_sz,
+    nbins,
+    pth,
+    nef_pth,
+    sef_pth,
 ):
     """
     Parameters
@@ -61,15 +61,9 @@ def process_file(
 
     # copy the NEF/SEF to here.
     shutil.copytree(
-        str(nef_pth / daq_dirname) + "/",
-        f"./{daq_dirname}",
-        dirs_exist_ok=True
+        str(nef_pth / daq_dirname) + "/", f"./{daq_dirname}", dirs_exist_ok=True
     )
-    shutil.copytree(
-        str(sef_pth / daq_dirname),
-        f"./{daq_dirname}",
-        dirs_exist_ok=True
-    )
+    shutil.copytree(str(sef_pth / daq_dirname), f"./{daq_dirname}", dirs_exist_ok=True)
 
     # find out the maximum number of frames in the NEF
     s = Status()
@@ -231,10 +225,11 @@ def process_file(
         detector[det_idx, y, x] += 1
 
     assert np.sum(detector) == len(_events)
-    frame_count_fraction = [np.count_nonzero(bin_loc==i) for i in range(nbins)] / np.prod(bin_loc.shape)
+    frame_count_fraction = [
+        np.count_nonzero(bin_loc == i) for i in range(nbins)
+    ] / np.prod(bin_loc.shape)
 
     qkk_patcher(nxfile, detector, frame_count_fraction, fpth)
-
 
 
 def qkk_patcher(nxfile, detector, frame_count_fraction, pth):
@@ -249,10 +244,7 @@ def qkk_patcher(nxfile, detector, frame_count_fraction, pth):
 
     for i in range(len(detector)):
         new_nxfile = f"QKK{i:07d}"
-        shutil.copy(
-            pth / nxfile + ".nx.hdf",
-            new_nxfile + ".nx.hdf"
-        )
+        shutil.copy(pth / nxfile + ".nx.hdf", new_nxfile + ".nx.hdf")
 
         with h5py.File(f"{new_nxfile}.nx.hdf", "r+") as f:
             # rename group from the nxfile. For some reason Quokka is special
