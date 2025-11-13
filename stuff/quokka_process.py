@@ -75,16 +75,18 @@ def process_file(
     # copy the NEF/SEF to here.
     print("Obtaining NEF/SEF and merging")
     shutil.copytree(
-        str(nef_pth / daq_dirname) + "/", f"./{daq_dirname}", dirs_exist_ok=True
+        str(nef_pth / daq_dirname) + "/", f"{nx}/{daq_dirname}", dirs_exist_ok=True
     )
-    shutil.copytree(str(sef_pth / daq_dirname), f"./{daq_dirname}", dirs_exist_ok=True)
+    shutil.copytree(
+        str(sef_pth / daq_dirname), f"{nx}/{daq_dirname}", dirs_exist_ok=True
+    )
 
     # find out the maximum number of frames in the NEF
     s = Status()
     state = State(s.from_file(daq_dirname))
     max_frames = state.dct["current_frame"]
 
-    print("Loading SEF")
+    print("loading SEF")
     # read SEF events into a list
     events = analysis.read_events(daq_dirname)
 
@@ -239,7 +241,7 @@ def process_file(
     # bin each neutron event into the detector image
     # Remember that the tof information of the neutron events have already been digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
-    print("Binning neutrons")
+    print("binning neutrons")
     for i in _events:
         f, t, y, x = i
         det_idx = bin_loc[f, t]
@@ -251,25 +253,26 @@ def process_file(
     ] / np.prod(bin_loc.shape)
 
     print("patching file")
-    qkk_patcher(nxfile, detector, frame_count_fraction, fpth)
+    qkk_patcher(nx, detector, frame_count_fraction, fpth)
     print("finished")
 
 
-def qkk_patcher(nxfile, detector, frame_count_fraction, pth):
+def qkk_patcher(nx, detector, frame_count_fraction, pth):
     """
     Parameters
     ----------
-    nxfile : str
+    nx: int
     detector : np.ndarray
     frame_count_fraction : np.ndarray
     pth : Path-like
     """
-
+    nxfile = f"QKK{nx:07d}"
+    dst_pth = Path(f"./{nx}")
     for i in range(len(detector)):
         new_nxfile = f"QKK{i:07d}"
-        shutil.copy(pth / (nxfile + ".nx.hdf"), new_nxfile + ".nx.hdf")
+        shutil.copy(pth / (nxfile + ".nx.hdf"), dst_pth / (new_nxfile + ".nx.hdf"))
 
-        with h5py.File(f"{new_nxfile}.nx.hdf", "r+") as f:
+        with h5py.File(dst_pth / f"{new_nxfile}.nx.hdf", "r+") as f:
             # rename group from the nxfile. For some reason Quokka is special
             # and the first child of the root node is named after the datafile
             f.move(f"/{nxfile}", f"/{new_nxfile}")
