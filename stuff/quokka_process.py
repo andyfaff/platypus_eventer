@@ -11,6 +11,19 @@ from platypus_eventer import analysis
 from platypus_eventer.status import State, Status
 
 
+import itertools
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.optimize import differential_evolution
+import h5py
+import shutil
+from pathlib import Path
+
+from refnx.reduce import event
+from platypus_eventer import analysis
+from platypus_eventer.status import State, Status
+
+
 def process_file(
     nx,
     frame_frequency,
@@ -57,9 +70,10 @@ def process_file(
         _pth = f"/{nxfile}/instrument/velocity_selector/wavelength_nominal"
         lamda = fi[_pth][0]
 
-    print(f"{daq_dirname=}")
+    print(f"Processing {str(fpth / f"{nxfile}.nx.hdf")}, {daq_dirname=}")
 
     # copy the NEF/SEF to here.
+    print("Obtaining NEF/SEF and merging")
     shutil.copytree(
         str(nef_pth / daq_dirname) + "/", f"./{daq_dirname}", dirs_exist_ok=True
     )
@@ -70,6 +84,7 @@ def process_file(
     state = State(s.from_file(daq_dirname))
     max_frames = state.dct["current_frame"]
 
+    print("Loading SEF")
     # read SEF events into a list
     events = analysis.read_events(daq_dirname)
 
@@ -103,6 +118,7 @@ def process_file(
     f_sample -= frame_offset
 
     # identify any glitches caused by missed T0 pulses
+    print("deglitching")
     bf = analysis.identify_glitch(t_t0, 25)
     if np.count_nonzero(bf):
         _o = analysis.deglitch(f_t0, t_t0, f_sample, t_sample, volts, 25)
@@ -144,6 +160,7 @@ def process_file(
     # initial guess vector
     p0 = [offset, amplitude, f0, osc_period]
 
+    print("fitting sine wave")
     res = differential_evolution(
         chi2,
         bounds=[
@@ -156,6 +173,7 @@ def process_file(
     )
     offset, amplitude, f0, osc_period = p0 = res.x
     oscillation_period = osc_period
+    print(f"{offset=}, {amplitude=}, {f0=}, {osc_period=}")
 
     # these specify the phases with the oscillation for which we wish to produce
     # scattering curves. *They are bin edges*.
@@ -172,6 +190,7 @@ def process_file(
     TIME_BINS = np.linspace(0, _period, int(_period / (1000 * subframe_bin_sz)) + 1)
 
     # load in the NEF
+    print("loading NEF")
     with open(f"{daq_dirname}/DATASET_0/EOS.bin", "rb") as f:
         nef = event.events(f)
         f_events, t_events, y_events, x_events = nef[0]
@@ -211,6 +230,7 @@ def process_file(
 
     # Calculate where the phase of each of frames/subframes would land in the phase_bins.
     # i.e. it specifies which detector image each frame/subframe each neutron will end up in.
+    print("digitising frames")
     bin_loc = np.digitize(frame_phases, phase_bins) - 1
 
     # make the detector image, N, Y, X
@@ -219,6 +239,7 @@ def process_file(
     # bin each neutron event into the detector image
     # Remember that the tof information of the neutron events have already been digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
+    print("Binning neutrons")
     for i in _events:
         f, t, y, x = i
         det_idx = bin_loc[f, t]
@@ -229,7 +250,9 @@ def process_file(
         np.count_nonzero(bin_loc == i) for i in range(nbins)
     ] / np.prod(bin_loc.shape)
 
+    print("patching file")
     qkk_patcher(nxfile, detector, frame_count_fraction, fpth)
+    print("finished")
 
 
 def qkk_patcher(nxfile, detector, frame_count_fraction, pth):
@@ -244,7 +267,7 @@ def qkk_patcher(nxfile, detector, frame_count_fraction, pth):
 
     for i in range(len(detector)):
         new_nxfile = f"QKK{i:07d}"
-        shutil.copy(pth / nxfile + ".nx.hdf", new_nxfile + ".nx.hdf")
+        shutil.copy(pth / (nxfile + ".nx.hdf"), new_nxfile + ".nx.hdf")
 
         with h5py.File(f"{new_nxfile}.nx.hdf", "r+") as f:
             # rename group from the nxfile. For some reason Quokka is special
