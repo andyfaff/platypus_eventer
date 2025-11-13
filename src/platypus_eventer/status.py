@@ -91,7 +91,7 @@ class Status:
                 txt = response.read().decode("UTF-8")
             return txt
         except TimeoutError:
-            current_datetime = datetime.now()
+            current_datetime = datetime.datestime.now()
             iso_formatted_time = current_datetime.isoformat()
             print(f"Status timed out: {iso_formatted_time}")
             return None
