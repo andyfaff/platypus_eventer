@@ -83,15 +83,15 @@ def process_file(
 
     # find out the maximum number of frames in the NEF
     s = Status()
-    state = State(s.from_file(daq_dirname))
+    state = State(s.from_file(f"{nx}/{daq_dirname}"))
     max_frames = state.dct["current_frame"]
 
     print("loading SEF")
     # read SEF events into a list
-    events = analysis.read_events(daq_dirname)
+    events = analysis.read_events(f"{nx}/{daq_dirname}")
 
     # calculate which SEF frame corresponds to the first NEF
-    frame_offset = analysis.predicted_frame(daq_dirname)
+    frame_offset = analysis.predicted_frame(f"{nx}/{daq_dirname}")
 
     # remove all events less than frame_offset
     events = [i for i in events if frame_offset <= i[0]]
@@ -193,7 +193,7 @@ def process_file(
 
     # load in the NEF
     print("loading NEF")
-    with open(f"{daq_dirname}/DATASET_0/EOS.bin", "rb") as f:
+    with open(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin", "rb") as f:
         nef = event.events(f)
         f_events, t_events, y_events, x_events = nef[0]
         t_events = np.asarray(t_events, np.uint32)
