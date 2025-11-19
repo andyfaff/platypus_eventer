@@ -1,0 +1,13 @@
+gpiozero
+lgpio
+numpy
+packaging
+paramiko
+platypus-eventer
+psutil
+refnx
+rpi-lgpio
+scipy
+smbus
+smbus3
+spidev
