@@ -1,8 +1,9 @@
 import itertools
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import differential_evolution
+from scipy.optimize import differential_evolution, minimize
 import h5py
+import time
 import shutil
 from pathlib import Path
 
@@ -22,6 +23,34 @@ from pathlib import Path
 from refnx.reduce import event
 from platypus_eventer import analysis
 from platypus_eventer.status import State, Status
+
+
+def wave(x, p):
+    offset, amplitude, f0, osc_period = p
+    return offset + amplitude * np.sin(phase(x, p))
+
+
+def phase(x, p):
+    x = np.asarray(x, np.float64)
+    offset, amplitude, f0, osc_period = p
+    return 2 * np.pi * (x - f0) / osc_period
+
+
+def chi2(p, *args):
+    x = args[0]
+    y = args[1]
+    ideal = wave(x, p)
+    return np.sum((y - ideal) ** 2)
+
+
+def event_reader(binfile, numframes=1_000_000):
+    fcount = 0
+    eole = [127]
+    ev = [[1]]
+    with open(binfile, 'rb') as f:
+        while len(ev[0]) > 0:
+            ev, eole = events(f, end_last_event=eole[-1], max_frames=numframes)
+            yield ev
 
 
 def process_file(
@@ -136,21 +165,7 @@ def process_file(
         _idx = np.argwhere(f_t0 == _f_sample)[0, 0]
         _t_t0 = t_t0[_idx]
         f_sample_frac[i] = ((_t_sample - _t_t0)) / _period
-
-    def wave(x, p):
-        offset, amplitude, f0, osc_period = p
-        return offset + amplitude * np.sin(phase(x, p))
-
-    def phase(x, p):
-        x = np.asarray(x, np.float64)
-        offset, amplitude, f0, osc_period = p
-        return 2 * np.pi * (x - f0) / osc_period
-
-    def chi2(p, *args):
-        x = args[0]
-        y = args[1]
-        ideal = wave(x, p)
-        return np.sum((y - ideal) ** 2)
+        assert 0 < f_sample_frac[i] < 1
 
     # fit a sine wave to the frame vs voltage information
     # initial guesses
@@ -163,6 +178,7 @@ def process_file(
     p0 = [offset, amplitude, f0, osc_period]
 
     print("fitting sine wave")
+    print(time.time())
     res = differential_evolution(
         chi2,
         bounds=[
@@ -172,10 +188,14 @@ def process_file(
             (0.9 * oscillation_period, 1.1 * oscillation_period),
         ],
         args=(f_sample + f_sample_frac, volts),
+        # workers=-1,
+        # polish=False
     )
     offset, amplitude, f0, osc_period = p0 = res.x
+    np.testing.assert_allclose(p0, res.x)
     oscillation_period = osc_period
     print(f"{offset=}, {amplitude=}, {f0=}, {osc_period=}")
+    print(time.time())
 
     # these specify the phases with the oscillation for which we wish to produce
     # scattering curves. *They are bin edges*.
@@ -212,7 +232,7 @@ def process_file(
 
     _mid_subframe_bins = 0.5 * (TIME_BINS[1:] + TIME_BINS[:-1]) / _period
     _frac_frames = f_t0[:, None] + _mid_subframe_bins[None, :]
-
+    assert (np.diff(f_t0)==1).all()
     # Calculate the sine wave phase for each frame/subframe.
     # Note, these are predicted phases based on the fitted model above. If the
     # sine wave fit is poor, then the whole reduction falls over.
@@ -241,13 +261,20 @@ def process_file(
     # bin each neutron event into the detector image
     # Remember that the tof information of the neutron events have already been digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
-    print("binning neutrons")
+    assert_counts = True
     for i in _events:
         f, t, y, x = i
-        det_idx = bin_loc[f, t]
+        # assert f in f_t0
+        try:
+            det_idx = bin_loc[f, t]
+        except IndexError as e:
+            # some TOF lie outside the timebins for some reason
+            assert_counts = False
+            continue
         detector[det_idx, y, x] += 1
+    if assert_counts:
+        assert np.sum(detector) == len(_events)
 
-    assert np.sum(detector) == len(_events)
     frame_count_fraction = [
         np.count_nonzero(bin_loc == i) for i in range(nbins)
     ] / np.prod(bin_loc.shape)
