@@ -46,11 +46,16 @@ def chi2(p, *args):
 def event_reader(binfile, numframes=1_000_000):
     fcount = 0
     eole = [127]
-    ev = [[1]]
-    with open(binfile, 'rb') as f:
-        while len(ev[0]) > 0:
-            ev, eole = events(f, end_last_event=eole[-1], max_frames=numframes)
-            yield ev
+    with open(binfile, 'rb') as fi:
+        while True:
+            ev, eole = event.events(fi, end_last_event=eole[-1], max_frames=numframes)
+            if len(ev[0]) > 0:
+                f, t, y, x = ev
+                f += fcount
+                yield (f, t, y, x)
+                fcount += numframes
+            else:
+                break
 
 
 def process_file(
@@ -207,24 +212,8 @@ def process_file(
     # If the time bin width is 2000 us, then the sampling rate is 500 Hz.
 
     # From now on we use time bin/subframe interchangeably.
-
     _period = 1000000 / frame_frequency  # microseconds
     TIME_BINS = np.linspace(0, _period, int(_period / (1000 * subframe_bin_sz)) + 1)
-
-    # load in the NEF
-    print("loading NEF")
-    with open(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin", "rb") as f:
-        nef = event.events(f)
-        f_events, t_events, y_events, x_events = nef[0]
-        t_events = np.asarray(t_events, np.uint32)
-        y_events = np.asarray(y_events, np.uint32)
-        x_events = np.asarray(x_events, np.uint32)
-
-        # histogram/rebin the TOF data according to the time_bins
-        # t_events will be a number in [0, len(TIME_BINS)). i.e.
-        # an array index for which time bin the neutron is in.
-        t_events = np.digitize(t_events, TIME_BINS) - 1
-        _events = np.c_[f_events, t_events, y_events, x_events]
 
     # Work out phase for each frame/subframe.
     # Should have shape (N, T) where N is the total number of frames
@@ -254,26 +243,42 @@ def process_file(
     # i.e. it specifies which detector image each frame/subframe each neutron will end up in.
     print("digitising frames")
     bin_loc = np.digitize(frame_phases, phase_bins) - 1
+    # print(bin_loc[0:50]) # check that the sorting is incrementing correctly
 
     # make the detector image, N, Y, X
     detector = np.zeros((nbins, 192, 192), dtype=np.uint32)
 
-    # bin each neutron event into the detector image
-    # Remember that the tof information of the neutron events have already been digitised.
+    # bin neutron events into the detector image
+    # tof information of the neutron events has to be digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
-    assert_counts = True
-    for i in _events:
-        f, t, y, x = i
-        # assert f in f_t0
-        try:
-            det_idx = bin_loc[f, t]
-        except IndexError as e:
-            # some TOF lie outside the timebins for some reason
-            assert_counts = False
-            continue
-        detector[det_idx, y, x] += 1
-    if assert_counts:
-        assert np.sum(detector) == len(_events)
+    _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")
+
+    _cts = 0
+    for nef in _event_reader:
+        f_events, t_events, y_events, x_events = nef
+        t_events = np.asarray(t_events, np.uint32)
+        y_events = np.asarray(y_events, np.uint32)
+        x_events = np.asarray(x_events, np.uint32)
+
+        # histogram/rebin the TOF data according to the time_bins
+        # t_events will be a number in [0, len(TIME_BINS)). i.e.
+        # an array index for which time bin the neutron is in.
+        t_events = np.digitize(t_events, TIME_BINS) - 1
+        _events = np.c_[f_events, t_events, y_events, x_events]
+
+        for i in _events:
+            f, t, y, x = i
+            # assert f in f_t0
+            try:
+                det_idx = bin_loc[f, t]
+            except IndexError as e:
+                # some TOF lie outside the timebins for some reason
+                continue
+            detector[det_idx, y, x] += 1
+
+    # ev = event.events(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")[0]
+    # assert ev[0][-1] == f_events[-1]
+    # assert np.sum(detector) == len(ev[0])
 
     frame_count_fraction = [
         np.count_nonzero(bin_loc == i) for i in range(nbins)
