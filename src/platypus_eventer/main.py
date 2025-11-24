@@ -1,3 +1,4 @@
+import argparse
 from multiprocessing import Process, Queue, Value, Event
 import multiprocessing as mp
 import ctypes
@@ -251,8 +252,37 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
 
 
 def _main_entry():
-    print(sys.argv)
-    main(user=sys.argv[1], password=sys.argv[2], pth=sys.argv[3])
+    parser = argparse.ArgumentParser()
+    parser.add_argument("user", help="User name for the DAS server")
+    parser.add_argument("password", help="Password for the DAS server")
+    parser.add_argument(
+        "pth", help="Location for where the data is stored", default=Path.cwd()
+    )
+
+    parser.add_argument(
+        "-N",
+        "--samples_per_frame",
+        help="Number of ADC samples per frame",
+        type=int,
+        default=1,
+    )
+    parser.add_argument(
+        "-f",
+        "--freq",
+        help="Frame frequency (Hz)",
+        type=int,
+        default=None,
+    )
+    args = parser.parse_args()
+    print(args)
+
+    main(
+        user=args.user,
+        password=args.password,
+        pth=args.pth,
+        frame_frequency=args.freq,
+        N=args.samples_per_frame,
+    )
 
 
 if __name__ == "__main__":
