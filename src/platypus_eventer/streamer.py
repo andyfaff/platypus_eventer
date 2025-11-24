@@ -68,7 +68,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
     gpio.cleanup()
 
 
-def ADC_streamer2(frame, frame_event, queue, shutdown_event):
+def ADC_streamer2(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     # only for testing chopper 4 signal. When you use ADC comment this out again
     import RPi.GPIO as gpio
 
@@ -96,7 +96,7 @@ def ADC_streamer2(frame, frame_event, queue, shutdown_event):
     gpio.cleanup()
 
 
-def ADC_streamer(frame, frame_event, queue, shutdown_event):
+def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     import spidev
 
     spi = spidev.SpiDev()
@@ -112,6 +112,12 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
         volts = (data * 3.3) / 1023.0
         return volts
 
+    # Samples per frame
+    if frame_frequency is None:
+        frame_frequency = 25
+    period = 1 / frame_frequency
+    tspacing = period / N
+
     while True:
         frame_event.wait(timeout=1)
         # if frame_event.is_set():
@@ -119,11 +125,11 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
             f = frame.value
 
         frame_event.clear()
-
-        # 1 samples per frame
-        N = 1
         for i in range(N):
             t = time.time_ns()
+            if i == 0:
+                init_time = t
+
             # ADC measure
             level = read_channel(0)
             v = convert_volts(level)
@@ -131,9 +137,10 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event):
             # measured at 0.306 using 10 V supply and voltmeter
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
-            if i == N - 1:
+            if frame_event.is_set() or (t - init_time) < tspacing:
                 break
-            time.sleep(0.02)
+            if i < N - 1:
+                time.sleep(tspacing)
 
         if shutdown_event.is_set():
             print("ADC streamer stopping")

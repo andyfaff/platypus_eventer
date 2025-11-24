@@ -20,7 +20,10 @@ class EventStreamer:
     measuring the sample events, and writing both events to file.
     """
 
-    def __init__(self):
+    def __init__(self, frame_frequency=None, N=1):
+        self.N = N
+        self.frame_frequency = frame_frequency
+
         self.stream_loc = None
 
         self.queue = None
@@ -87,7 +90,14 @@ class EventStreamer:
         )
         self.p_ADC_streamer = Process(
             target=streamer.ADC_streamer,
-            args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
+            args=(
+                self.frame,
+                self.frame_event,
+                self.queue,
+                self.shutdown_event,
+                self.frame_frequency,
+                self.N,
+            ),
         )
 
         self.p_writer.start()
@@ -132,7 +142,7 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
     return stream_loc
 
 
-def main(user="manager", password="", pth=None):
+def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
     """
     Starts the streaming process for sample events
 
@@ -144,6 +154,10 @@ def main(user="manager", password="", pth=None):
         Password for the DAS server
     pth : str
         Parent directory for all the streamed data
+    frame_frequency : int
+        How many frames per second (Hz)
+    N : int
+        How many ADC samples to measure per frame
     """
     if pth is None:
         pth = Path.cwd()
@@ -156,7 +170,7 @@ def main(user="manager", password="", pth=None):
 
     s = Status(user=user, password=password, url=das_server)
     old_state = State(s())
-    streamer = EventStreamer()
+    streamer = EventStreamer(frame_frequency=frame_frequency, N=N)
 
     # shutdown gracefully
     signal_close = partial(_signal_close, streamer)
