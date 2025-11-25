@@ -26,6 +26,7 @@ class EventStreamer:
         self.frame_frequency = frame_frequency
 
         self.stream_loc = None
+        self.start_time = None
 
         self.queue = None
         self.shutdown_event = Event()
@@ -39,6 +40,8 @@ class EventStreamer:
 
     def stop(self, DATASET_number=None, final_state=None):
         self.currently_streaming = False
+        self.start_time = None
+
         self.shutdown_event.set()
 
         if self.p_t0_streamer is not None:
@@ -79,6 +82,7 @@ class EventStreamer:
 
     def start(self, stream_loc):
         self.stream_loc = stream_loc
+
         self.shutdown_event.clear()
         self.frame_event.clear()
 
@@ -105,6 +109,7 @@ class EventStreamer:
         self.p_t0_streamer.start()
         self.p_ADC_streamer.start()
 
+        self.start_time = time.time()
         self.currently_streaming = True
 
 
@@ -141,6 +146,13 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
         f.write(state.response)
 
     return stream_loc
+
+
+def _update_status(pth, state, dataset_number_being_written):
+    stream_loc = pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
+    stream_loc = stream_loc.resolve()
+    with open(stream_loc / "state.txt", "w") as f:
+        f.write(state.response)
 
 
 def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
@@ -183,6 +195,7 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
     dataset_number_being_written = 0
     LAST_DAQ_DIRNAME = ""
     STATE_REQUIRES_UPDATE = True
+    time_state_last_updated = None
 
     while True:
         _s = s()
@@ -208,6 +221,7 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
                     state,
                     dataset_number_being_written=dataset_number_being_written,
                 )
+                time_state_last_updated = time.time()
                 STATE_REQUIRES_UPDATE = False
 
         if streamer.currently_streaming and (
@@ -243,9 +257,14 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
             stream_loc = _create_stream_directory(
                 pth, state, dataset_number_being_written=dataset_number_being_written
             )
+            time_state_last_updated = time.time()
 
             streamer.start(stream_loc)
             update_period = 1.0
+
+        if streamer.currently_streaming and state.started and time_state_last_updated is not None and time.time() > time_state_last_updated + 60:
+            _update_status(pth, state, dataset_number_being_written)
+            time_state_last_updated = time.time()
 
         old_state = state
         time.sleep(update_period)
