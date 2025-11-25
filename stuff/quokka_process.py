@@ -148,7 +148,7 @@ def process_file(
     volts = np.array(volts)
     # the frame number corresponding to the voltage measurement events
     f_sample = np.array([i[0] for i in events if i[2] == 1])
-    # time corresponding to each of the T0 frames.
+    # time corresponding to each of the voltage measurement events
     t_sample = np.array([i[1] for i in events if i[2] == 1]) / 1e9
 
     # the T0 frame numbers
@@ -225,10 +225,11 @@ def process_file(
     # Work out phase for each frame/subframe.
     # Should have shape (N, T) where N is the total number of frames
     # and T is the number of time bins/subframes.
-
+    # _frac_frames is in Neutron Frame space
     _mid_subframe_bins = 0.5 * (TIME_BINS[1:] + TIME_BINS[:-1]) / _period
     _frac_frames = f_t0[:, None] + _mid_subframe_bins[None, :]
     assert (np.diff(f_t0) == 1).all()
+
     # Calculate the sine wave phase for each frame/subframe.
     # Note, these are predicted phases based on the fitted model above. If the
     # sine wave fit is poor, then the whole reduction falls over.
@@ -244,6 +245,7 @@ def process_file(
     _phase_offset *= 2 * np.pi
 
     # phase for each frame/{subframe, time bin}
+    # works out what sample phase each neutron frame/subframe corresponds to.
     frame_phases = (phase(_frac_frames, p0) - _phase_offset) % (2 * np.pi)
 
     # Calculate where the phase of each of frames/subframes would land in the phase_bins.
