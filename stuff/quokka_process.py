@@ -43,10 +43,11 @@ def chi2(p, *args):
     return np.sum((y - ideal) ** 2)
 
 
-def event_reader(binfile, numframes=1_000_000):
+def event_reader(binfile, numframes=7_500):
+    # 7500 frames is 5 minutes at 25 Hz
     fcount = 0
     eole = [127]
-    with open(binfile, 'rb') as fi:
+    with open(binfile, "rb") as fi:
         while True:
             ev, eole = event.events(fi, end_last_event=eole[-1], max_frames=numframes)
             if len(ev[0]) > 0:
@@ -67,6 +68,7 @@ def process_file(
     pth,
     nef_pth,
     sef_pth,
+    collect_time=None,
 ):
     """
     Parameters
@@ -91,6 +93,9 @@ def process_file(
         Path to NEF file
     sef_pth: Path-like
         Path to SEF file
+    collect_time: None or (float, float)
+        If specified, the processing discards neutron data outside this time period.
+        (180, 1000) would include data between 180 and 1000 seconds.
     """
     nxfile = f"QKK{nx:07d}"
     fpth = Path(pth)
@@ -103,6 +108,8 @@ def process_file(
         detector_y = fi[_pth][0]
         _pth = f"/{nxfile}/instrument/velocity_selector/wavelength_nominal"
         lamda = fi[_pth][0]
+        _pth = f"/{nxfile}/instrument/detector/time"
+        measurement_time = fi[_pth][0]
 
     print(f"Processing {str(fpth / f"{nxfile}.nx.hdf")}, {daq_dirname=}")
 
@@ -221,7 +228,7 @@ def process_file(
 
     _mid_subframe_bins = 0.5 * (TIME_BINS[1:] + TIME_BINS[:-1]) / _period
     _frac_frames = f_t0[:, None] + _mid_subframe_bins[None, :]
-    assert (np.diff(f_t0)==1).all()
+    assert (np.diff(f_t0) == 1).all()
     # Calculate the sine wave phase for each frame/subframe.
     # Note, these are predicted phases based on the fitted model above. If the
     # sine wave fit is poor, then the whole reduction falls over.
@@ -253,6 +260,18 @@ def process_file(
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
     _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")
 
+    # perhaps we only want to use a subset of the data
+    start_frame = 0
+    end_frame = np.inf
+    fractional_time = 1
+    if collect_time is not None:
+        start_frame = max(collect_time[0] * frame_frequency, 0)
+        end_frame = collect_time[1] * frame_frequency
+        # what fraction of the measurement did we want to examine?
+        fractional_time = (collect_time[1] - collect_time[0]) / measurement_time
+        if collect_time[1] > measurement_time:
+            raise ValueError("collect_time[1] is greater than the measurement_time")
+
     _cts = 0
     for nef in _event_reader:
         f_events, t_events, y_events, x_events = nef
@@ -266,7 +285,22 @@ def process_file(
         t_events = np.digitize(t_events, TIME_BINS) - 1
         _events = np.c_[f_events, t_events, y_events, x_events]
 
-        for i in _events:
+        # figure out which events to process
+        strt_idx = 0
+        end_idx = len(_events)
+        if f_events[-1] < start_frame:
+            # we don't need any events from this read iteration, read some more.
+            continue
+        elif f_events[0] >= end_frame:
+            # the first frame in this read iteration is already at the end number of frames
+            break
+
+        if f_events[0] <= start_frame <= f_events[-1]:
+            strt_idx = np.searchsorted(f_events, start_frame)
+        if f_events[0] <= end_frame <= f_events[-1]:
+            end_idx = np.searchsorted(f_events, end_frame)
+
+        for i in _events[strt_idx:end_idx]:
             f, t, y, x = i
             # assert f in f_t0
             try:
@@ -276,16 +310,27 @@ def process_file(
                 continue
             detector[det_idx, y, x] += 1
 
+        if end_frame < f_events[-1]:
+            # we've already read enough frames, we can stop reading the NEF
+            break
+
     # ev = event.events(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")[0]
     # assert ev[0][-1] == f_events[-1]
     # assert np.sum(detector) == len(ev[0])
 
+    # frame_count_fraction determines the amount of distributed monitor counts/time
+    # for each synthesised dataset.
+    if collect_time is not None:
+        # trim down f_t0, bin_loc
+        strt_idx = np.searchsorted(f_t0, start_frame)
+        end_idx = np.searchsorted(f_t0, end_frame)
+        bin_loc = bin_loc[strt_idx:end_idx]
+
     frame_count_fraction = [
         np.count_nonzero(bin_loc == i) for i in range(nbins)
     ] / np.prod(bin_loc.shape)
-
     print("patching file")
-    qkk_patcher(nx, detector, frame_count_fraction, fpth)
+    qkk_patcher(nx, detector, frame_count_fraction * fractional_time, fpth)
     print("finished")
 
 
