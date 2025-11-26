@@ -207,6 +207,7 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
         if _s is None:
             # getting status failed for some reason.
             # Either timeout (das server busy?) or no connection (no path to das server)
+            print(f"{streamer.currently_streaming=}")
             time.sleep(update_period)
             continue
 
