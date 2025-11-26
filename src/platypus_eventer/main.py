@@ -3,6 +3,7 @@ from multiprocessing import Process, Queue, Value, Event
 import multiprocessing as mp
 import ctypes
 import time
+from urllib.request import URLError
 import configparser
 from pathlib import Path
 import os
@@ -182,7 +183,11 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
     das_server = config.get("url", "das")
 
     s = Status(user=user, password=password, url=das_server)
-    old_state = State(s())
+    _s = s()
+    if _s is not None:
+        old_state = State(_s)
+    else:
+        raise RuntimeError("Cannot obtain initial state from DAS server.")
     streamer = EventStreamer(frame_frequency=frame_frequency, N=N)
 
     # shutdown gracefully
@@ -201,6 +206,7 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
         _s = s()
         if _s is None:
             # getting status failed for some reason.
+            # Either timeout (das server busy?) or no connection (no path to das server)
             time.sleep(update_period)
             continue
 

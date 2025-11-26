@@ -1,4 +1,5 @@
 import urllib.request
+from urllib.request import URLError
 from pathlib import Path
 import datetime
 
@@ -93,7 +94,12 @@ class Status:
         except TimeoutError:
             current_datetime = datetime.datetime.now()
             iso_formatted_time = current_datetime.isoformat()
-            print(f"Status timed out: {iso_formatted_time}")
+            print(f"WARNING: status timed out: {iso_formatted_time}")
+            return None
+        except URLError:
+            current_datetime = datetime.datetime.now()
+            iso_formatted_time = current_datetime.isoformat()
+            print(f"ERROR: cannot connect to DAS server: {iso_formatted_time}, restart VPN/SSH")
             return None
 
     def from_file(self, daq_dirname, dataset=0, pth="."):
