@@ -196,7 +196,7 @@ def process_file(
         bounds=[
             (0.9 * offset, 1.1 * offset),
             (0.9 * amplitude, 1.1 * amplitude),
-            (-15, 15),
+            (-oscillation_period, oscillation_period),
             (0.9 * oscillation_period, 1.1 * oscillation_period),
         ],
         args=(f_sample + f_sample_frac, volts),
