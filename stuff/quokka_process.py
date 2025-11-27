@@ -19,6 +19,7 @@ from scipy.optimize import differential_evolution
 import h5py
 import shutil
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 from refnx.reduce import event
 from platypus_eventer import analysis
@@ -214,14 +215,14 @@ def process_file(
 
     print("fitting sine wave")
     print(time.time())
-    # np.savetxt("fs.txt", f_sample + f_sample_frac)
-    # np.savetxt("vs.txt", volts)
+    np.savetxt("fs.txt", f_sample + f_sample_frac)
+    np.savetxt("vs.txt", volts)
     res = differential_evolution(
         chi2,
         bounds=[
             (0.9 * offset, 1.1 * offset),
             (0.9 * amplitude, 1.1 * amplitude),
-            (-oscillation_period, oscillation_period),
+            (0, oscillation_period),
             (0.9 * oscillation_period, 1.1 * oscillation_period),
         ],
         args=(f_sample + f_sample_frac, volts),
@@ -233,6 +234,12 @@ def process_file(
     oscillation_period = osc_period
     print(f"{offset=}, {amplitude=}, {f0=}, {osc_period=}")
     print(time.time())
+    
+    fig, ax = plt.subplots(1)
+    ax.plot(f_sample + f_sample_frac, volts);
+    ax.plot(f_sample + f_sample_frac, wave(f_sample + f_sample_frac, res.x))
+    ax.set_xlim(0, 100)
+    fig.savefig("fit.png")
 
     # these specify the phases with the oscillation for which we wish to produce
     # scattering curves. *They are bin edges*.
