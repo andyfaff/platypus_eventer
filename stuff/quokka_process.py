@@ -154,7 +154,7 @@ def process_file(
     # the T0 frame numbers
     f_t0 = np.array([i[0] for i in events if i[2] < 0])
     # time corresponding to each of the T0 frames.
-    t_t0 = np.array([i[1] for i in events if i[2] < 1]) / 1e9
+    t_t0 = np.array([i[1] for i in events if i[2] < 0]) / 1e9
 
     # correct the SEF frame number so it lines up with the NEF
     f_t0 -= frame_offset
@@ -166,6 +166,29 @@ def process_file(
     if np.count_nonzero(bf):
         _o = analysis.deglitch(f_t0, t_t0, f_sample, t_sample, volts, 25)
         f_t0, t_t0, f_sample, t_sample, volts = _o
+
+    # perhaps we only want to use a subset of the data
+    start_frame = 0
+    end_frame = np.inf
+    fractional_time = 1
+    if collect_time is not None:
+        start_frame = max(collect_time[0] * frame_frequency, 0)
+        end_frame = collect_time[1] * frame_frequency
+        # what fraction of the measurement did we want to examine?
+        fractional_time = (collect_time[1] - collect_time[0]) / measurement_time
+        if collect_time[1] > measurement_time:
+            raise ValueError("collect_time[1] is greater than the measurement_time")
+
+    # remove SEF frames that we're not interested in.
+    _subset = np.searchsorted(f_t0, [start_frame, end_frame])
+    f_t0 = f_t0[_subset[0]:_subset[1]]
+    t_t0 = t_t0[_subset[0]:_subset[1]]
+    assert len(f_t0) == len(t_t0)
+    _subset = np.searchsorted(f_sample, [start_frame, end_frame])
+    f_sample = f_sample[_subset[0]:_subset[1]]
+    t_sample = t_sample[_subset[0]:_subset[1]]
+    volts = volts[_subset[0]:_subset[1]]
+    assert len(f_sample) == len(t_sample) == len(volts)
 
     # work out fractional location for when the voltage was measured within the frame
     # This is necessary if we want to get precision much smaller than the frame period.
@@ -191,6 +214,8 @@ def process_file(
 
     print("fitting sine wave")
     print(time.time())
+    # np.savetxt("fs.txt", f_sample + f_sample_frac)
+    # np.savetxt("vs.txt", volts)
     res = differential_evolution(
         chi2,
         bounds=[
@@ -261,18 +286,6 @@ def process_file(
     # tof information of the neutron events has to be digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
     _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")
-
-    # perhaps we only want to use a subset of the data
-    start_frame = 0
-    end_frame = np.inf
-    fractional_time = 1
-    if collect_time is not None:
-        start_frame = max(collect_time[0] * frame_frequency, 0)
-        end_frame = collect_time[1] * frame_frequency
-        # what fraction of the measurement did we want to examine?
-        fractional_time = (collect_time[1] - collect_time[0]) / measurement_time
-        if collect_time[1] > measurement_time:
-            raise ValueError("collect_time[1] is greater than the measurement_time")
 
     _cts = 0
     for nef in _event_reader:
