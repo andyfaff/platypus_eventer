@@ -137,7 +137,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
             # measured at 0.306 using 10 V supply and voltmeter
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
-            if frame_event.is_set() or (t - init_time) >  period - tspacing:
+            if frame_event.is_set() or (t - init_time) > period - tspacing:
                 break
             if i < N - 1:
                 time.sleep(tspacing)

@@ -101,13 +101,15 @@ def identify_glitch(t_f, frame_frequency, window=5):
     glitch = np.zeros((npnts,), np.bool)
     for i in range(npnts - window):
         if not (
-            0.9 * window * period < t_f[i + window] - t_f[i] < 1.1 * window * period
+            window * period - (period * 0.5)
+            < t_f[i + window] - t_f[i]
+            < window * period + (period * 0.5)
         ):
             glitch[i] = True
     return glitch
 
 
-def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5):
+def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5, debug=False):
     """
     Removes glitches caused by missed T0 pulses in a Sample Event File
     train. Glitches in predicted frame times are replaced with model
@@ -129,71 +131,83 @@ def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5):
         frequency of T0 signal generation
     window: int
         spread of pulses to check for glitches
+    debug: bool
+        Check glitches removed correctly
 
     Returns
     -------
-    f_f, t_f, f_v, t_v: tuple
+    f_f, t_f, f_v, t_v, voltage: tuple
         De-glitched sample environment event stream
     """
     period = 1 / frame_frequency
-    while True:
+    glitches = (
+        np.argwhere(identify_glitch(t_f, frame_frequency, window=window)).flatten() + 1
+    )
 
-        # identify bad frames
-        g = identify_glitch(t_f, frame_frequency, window=window)
-        if not np.sum(np.count_nonzero(g)):
-            break
+    if not len(glitches):
+        # no glitches
+        return f_f, t_f, f_v, t_v, voltage
 
-        bad_frames = np.argwhere(g)
-        first_bad = last_bad = bad_frames[0, 0]
-        # how long do the bad frames last
-        for i in range(1, bad_frames.size):
-            if bad_frames[i, 0] == last_bad + 1:
-                last_bad += 1
-            else:
-                break
-        window_size = last_bad - first_bad + 1
+    # collect the dodgy frames in batches
+    _diff = np.diff(glitches) > 1
+    batches = []
+    batch = []
+    for i, _d in enumerate(_diff):
+        if _d:
+            batches.append(np.r_[np.array(batch), glitches[i], glitches[i] + 1])
+            batch = []
+        else:
+            batch.append(glitches[i])
 
-        # need to get rid of first_bad:first_bad + window_size
-        last_good_before_glitch = first_bad - 1
-        first_good_after_glitch = first_bad + window_size
+    batches.append(np.r_[np.array(batch), glitches[-1], glitches[-1] + 1])
 
-        num_new_frames = (
-            int(
-                np.round(
-                    (t_f[first_good_after_glitch] - t_f[last_good_before_glitch])
-                    / period
-                )
-            )
-            - 1
-        )
-        # print(f"{num_new_frames=}, {first_bad=}, {window_size=}")
-
-        # remove bad frames
-        f_f = np.delete(f_f, slice(first_bad, first_good_after_glitch))
-        f_f[first_bad:] += num_new_frames - window_size
-
+    # now remove frames from the batches
+    new_t_f = []
+    start_good = 0
+    inserted = []
+    for batch in batches:
+        start_bad = batch[0]
+        new_t_f.append(t_f[start_good:start_bad])
+        time_diff = t_f[batch[-1] + 1] - t_f[start_bad - 1]
+        npnts = int(round(time_diff / period)) - 1
+        inserted.append(npnts)
         new_times = np.linspace(
-            t_f[last_good_before_glitch] + period,
-            t_f[first_good_after_glitch] - period,
-            num_new_frames,
+            t_f[start_bad - 1] + period,
+            t_f[batch[-1] + 1] - period,
+            num=npnts,
+            endpoint=True,
         )
-        t_f = np.delete(t_f, slice(first_bad, first_good_after_glitch))
+        new_t_f.append(new_times)
 
-        # find which voltage measurements to delete
-        _idx = np.argwhere(
-            np.logical_and(first_bad <= f_v, f_v < first_good_after_glitch)
-        )
-        f_v = np.delete(f_v, _idx)
-        t_v = np.delete(t_v, _idx)
-        voltage = np.delete(voltage, _idx)
-        # renumber voltage frames after the glitch
-        _idx = np.argwhere(first_good_after_glitch <= f_v)
-        f_v[_idx] += num_new_frames - window_size
+        start_good = batch[-1] + 1
 
-        # now put replacement frames in.
-        new_frames = np.arange(first_bad, first_bad + num_new_frames)
+    new_t_f.append(t_f[batches[-1][-1] + 1 :])
 
-        f_f = np.insert(f_f, first_bad, new_frames)
-        t_f = np.insert(t_f, first_bad, new_times)
+    new_t_f = np.concatenate(new_t_f)
+    new_f_f = np.arange(f_f[0], f_f[0] + len(new_t_f))
 
-    return f_f, t_f, f_v, t_v, voltage
+    # now adjust f_v, t_v
+    for i in reversed(range(len(batches))):
+        batch = batches[i]
+        insert = inserted[i]
+        l = np.searchsorted(f_v, batch[0])
+        r = np.searchsorted(f_v, batch[-1], side="right")
+
+        f_v = np.delete(f_v, slice(l, r))
+        f_v[l:] += -len(batch) + insert
+        t_v = np.delete(t_v, slice(l, r))
+        voltage = np.delete(voltage, slice(l, r))
+
+    if debug:
+        check_sample_times(new_f_f, new_t_f, f_v, t_v)
+    return new_f_f, new_t_f, f_v, t_v, voltage
+
+
+def check_sample_times(f_f, t_f, f_v, t_v):
+    for i, (_f_v, _t_v) in enumerate(zip(f_v, t_v)):
+        loc = np.searchsorted(f_f, _f_v)
+        try:
+            assert t_f[loc] < _t_v < t_f[loc + 1]
+        except AssertionError as e:
+            print(f"{i=}, {loc=}, {_f_v=},  {t_f[loc]=}, {_t_v=},  {t_f[loc+1]=}")
+            raise e

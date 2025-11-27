@@ -99,17 +99,23 @@ class Status:
         except URLError:
             current_datetime = datetime.datetime.now()
             iso_formatted_time = current_datetime.isoformat()
-            print(f"ERROR: cannot connect to DAS server: {iso_formatted_time}, restart VPN/SSH")
+            print(
+                f"ERROR: cannot connect to DAS server: {iso_formatted_time}, restart VPN/SSH"
+            )
             return None
         except ConnectionResetError:
             current_datetime = datetime.datetime.now()
             iso_formatted_time = current_datetime.isoformat()
-            print(f"ERROR: cannot connect to DAS server: {iso_formatted_time}, restart VPN/SSH")
+            print(
+                f"ERROR: cannot connect to DAS server: {iso_formatted_time}, restart VPN/SSH"
+            )
             return None
         except Exception:
             current_datetime = datetime.datetime.now()
             iso_formatted_time = current_datetime.isoformat()
-            print(f"ERROR: general exception connecing to DAS server: {iso_formatted_time}, restart VPN/SSH")
+            print(
+                f"ERROR: general exception connecing to DAS server: {iso_formatted_time}, restart VPN/SSH"
+            )
             return None
 
     def from_file(self, daq_dirname, dataset=0, pth="."):

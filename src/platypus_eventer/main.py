@@ -269,7 +269,12 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
             streamer.start(stream_loc)
             update_period = 1.0
 
-        if streamer.currently_streaming and state.started and time_state_last_updated is not None and time.time() > time_state_last_updated + 60:
+        if (
+            streamer.currently_streaming
+            and state.started
+            and time_state_last_updated is not None
+            and time.time() > time_state_last_updated + 60
+        ):
             _update_status(pth, state, dataset_number_being_written)
             time_state_last_updated = time.time()
 

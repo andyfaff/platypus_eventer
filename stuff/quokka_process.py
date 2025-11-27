@@ -1,6 +1,6 @@
 import itertools
 import numpy as np
-import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 from scipy.optimize import differential_evolution, minimize
 import h5py
 import time
@@ -69,7 +69,9 @@ def process_file(
     pth,
     nef_pth,
     sef_pth,
+    numframes=7_500,
     collect_time=None,
+    debug=False
 ):
     """
     Parameters
@@ -94,9 +96,12 @@ def process_file(
         Path to NEF file
     sef_pth: Path-like
         Path to SEF file
+    numframes: int
+        Load this many neutron frames per read.
     collect_time: None or (float, float)
         If specified, the processing discards neutron data outside this time period.
         (180, 1000) would include data between 180 and 1000 seconds.
+    debug: bool
     """
     nxfile = f"QKK{nx:07d}"
     fpth = Path(pth)
@@ -163,11 +168,12 @@ def process_file(
 
     # identify any glitches caused by missed T0 pulses
     print("deglitching")
-    bf = analysis.identify_glitch(t_t0, 25)
-    if np.count_nonzero(bf):
-        _o = analysis.deglitch(f_t0, t_t0, f_sample, t_sample, volts, 25)
-        f_t0, t_t0, f_sample, t_sample, volts = _o
-
+    _o = analysis.deglitch(f_t0, t_t0, f_sample, t_sample, volts, 25)
+    f_t0, t_t0, f_sample, t_sample, volts = _o
+    # make the times a little easier to understand by subtracting the start time
+    t_sample -= t_t0[0]
+    t_t0 -= t_t0[0]
+    
     # perhaps we only want to use a subset of the data
     start_frame = 0
     end_frame = np.inf
@@ -193,53 +199,12 @@ def process_file(
 
     # work out fractional location for when the voltage was measured within the frame
     # This is necessary if we want to get precision much smaller than the frame period.
+    # This should also work to check the deglitching.
     _period = 1 / frame_frequency
-
-    f_sample_frac = np.zeros_like(f_sample, dtype=np.float64)
-    for i, _f_sample in enumerate(f_sample):
-        _t_sample = t_sample[i]
-        _idx = np.argwhere(f_t0 == _f_sample)[0, 0]
-        _t_t0 = t_t0[_idx]
-        f_sample_frac[i] = ((_t_sample - _t_t0)) / _period
-        assert 0 < f_sample_frac[i] < 1
-
-    # fit a sine wave to the frame vs voltage information
-    # initial guesses
-    offset = np.mean(volts)
-    amplitude = 0.5 * (np.max(volts) - np.min(volts))
-    f0 = 11
-    osc_period = oscillation_period
-
-    # initial guess vector
-    p0 = [offset, amplitude, f0, osc_period]
-
-    print("fitting sine wave")
-    print(time.time())
-    np.savetxt("fs.txt", f_sample + f_sample_frac)
-    np.savetxt("vs.txt", volts)
-    res = differential_evolution(
-        chi2,
-        bounds=[
-            (0.9 * offset, 1.1 * offset),
-            (0.9 * amplitude, 1.1 * amplitude),
-            (0, oscillation_period),
-            (0.9 * oscillation_period, 1.1 * oscillation_period),
-        ],
-        args=(f_sample + f_sample_frac, volts),
-        # workers=-1,
-        # polish=False
-    )
-    offset, amplitude, f0, osc_period = p0 = res.x
-    np.testing.assert_allclose(p0, res.x)
-    oscillation_period = osc_period
-    print(f"{offset=}, {amplitude=}, {f0=}, {osc_period=}")
-    print(time.time())
-    
-    fig, ax = plt.subplots(1)
-    ax.plot(f_sample + f_sample_frac, volts);
-    ax.plot(f_sample + f_sample_frac, wave(f_sample + f_sample_frac, res.x))
-    ax.set_xlim(0, 100)
-    fig.savefig("fit.png")
+    _sample_frame_map = np.searchsorted(f_t0, f_sample)
+    f_sample_frac = (t_sample - t_t0[_sample_frame_map])/_period
+    assert np.logical_and(0 < f_sample_frac, f_sample_frac < 1).all()
+    f_sample_frac += f_sample    
 
     # these specify the phases with the oscillation for which we wish to produce
     # scattering curves. *They are bin edges*.
@@ -276,46 +241,68 @@ def process_file(
     # convert to radians
     _phase_offset *= 2 * np.pi
 
-    # phase for each frame/{subframe, time bin}
-    # works out what sample phase each neutron frame/subframe corresponds to.
-    frame_phases = (phase(_frac_frames, p0) - _phase_offset) % (2 * np.pi)
-
-    # Calculate where the phase of each of frames/subframes would land in the phase_bins.
-    # i.e. it specifies which detector image each frame/subframe each neutron will end up in.
-    print("digitising frames")
-    bin_loc = np.digitize(frame_phases, phase_bins) - 1
-    # print(bin_loc[0:50]) # check that the sorting is incrementing correctly
-
     # make the detector image, N, Y, X
     detector = np.zeros((nbins, 192, 192), dtype=np.uint32)
 
     # bin neutron events into the detector image
     # tof information of the neutron events has to be digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
-    _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin")
+    print("Loading NEF, finding phase")
+    _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin", numframes=numframes)
 
     _cts = 0
+    idx=0
     for nef in _event_reader:
         f_events, t_events, y_events, x_events = nef
         t_events = np.asarray(t_events, np.uint32)
         y_events = np.asarray(y_events, np.uint32)
         x_events = np.asarray(x_events, np.uint32)
 
-        # histogram/rebin the TOF data according to the time_bins
-        # t_events will be a number in [0, len(TIME_BINS)). i.e.
-        # an array index for which time bin the neutron is in.
-        t_events = np.digitize(t_events, TIME_BINS) - 1
-        _events = np.c_[f_events, t_events, y_events, x_events]
-
-        # figure out which events to process
-        strt_idx = 0
-        end_idx = len(_events)
         if f_events[-1] < start_frame:
             # we don't need any events from this read iteration, read some more.
             continue
         elif f_events[0] >= end_frame:
             # the first frame in this read iteration is already at the end number of frames
             break
+
+        # histogram/rebin the TOF data according to the time_bins
+        # t_events will be a number in [0, len(TIME_BINS)). i.e.
+        # an array index for which time bin the neutron is in.
+        t_events = np.digitize(t_events, TIME_BINS) - 1
+        _events = np.c_[f_events, t_events, y_events, x_events]
+    
+        # figure out which events to process
+        strt_idx = 0
+        end_idx = len(_events)
+
+        # phase for each frame/{subframe, time bin}
+        # works out what sample phase each neutron frame/subframe corresponds to.
+        l = np.searchsorted(f_sample, f_events[0])
+        r = np.searchsorted(f_sample, f_events[-1] + 1)
+        p0, chi2 = fit_sine_wave(
+            f_sample_frac[l:r],
+            volts[l:r],
+            oscillation_period
+        )
+        if debug:
+            print(p0, chi2)
+            np.savetxt(f"fs{idx}.txt", f_sample_frac[l:r])
+            np.savetxt(f"vs{idx}.txt", volts[l:r])
+            fig = Figure()
+            ax = fig.add_subplot(111)
+            ax.plot(f_sample_frac, volts);
+            ax.plot(f_sample_frac, wave(f_sample_frac, p0))
+            ax.set_xlim(f_sample[l], f_sample[l] + 100)
+            fig.savefig(f"fit{idx}.png")
+            idx+=1
+
+        # calculate sample phase for each neutron frame, correcting for TOF of sample to detector
+        frame_phases = (phase(_frac_frames, p0) - _phase_offset) % (2 * np.pi)
+    
+        # Calculate where the phase of each of frames/subframes would land in the phase_bins.
+        # i.e. it specifies which detector image each frame/subframe each neutron will end up in.
+        bin_loc = np.digitize(frame_phases, phase_bins) - 1
+        # print(bin_loc[0:50]) # check that the sorting is incrementing correctly
 
         if f_events[0] <= start_frame <= f_events[-1]:
             strt_idx = np.searchsorted(f_events, start_frame)
@@ -354,6 +341,26 @@ def process_file(
     print("patching file")
     qkk_patcher(nx, detector, frame_count_fraction * fractional_time, fpth)
     print("finished")
+
+
+def fit_sine_wave(fs, vs, oscillation_period):
+    # fit a sine wave to the frame vs voltage information
+    # initial guesses
+    offset = np.mean(vs)
+    bounds = [
+        (0.9 * offset, 1.1 * offset),
+        (0.01, 10),
+        (0, oscillation_period),
+        (0.9 * oscillation_period, 1.1 * oscillation_period),
+    ]
+    res = differential_evolution(
+        chi2,
+        bounds=bounds,
+        args=(fs, vs),
+        polish=False
+
+    )
+    return res.x, res.fun
 
 
 def qkk_patcher(nx, detector, frame_count_fraction, pth):
