@@ -42,8 +42,14 @@ nan = np.float16(np.nan)
 def T0_streamer(frame, frame_event, queue, shutdown_event):
     import RPi.GPIO as gpio
 
+    last_time = [time.time_ns()]
     def _callback(queue, channel):
         t = time.time_ns()
+        # debounce
+        if t - last_time[0] < 25_000_000:
+            return
+        last_time[0] = t
+
         # print("T0")
         with frame.get_lock():
             frame.value += 1
