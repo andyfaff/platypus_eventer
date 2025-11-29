@@ -71,7 +71,7 @@ def process_file(
     sef_pth,
     numframes=7_500,
     collect_time=None,
-    debug=False
+    debug=False,
 ):
     """
     Parameters
@@ -173,7 +173,7 @@ def process_file(
     # make the times a little easier to understand by subtracting the start time
     t_sample -= t_t0[0]
     t_t0 -= t_t0[0]
-    
+
     # perhaps we only want to use a subset of the data
     start_frame = 0
     end_frame = np.inf
@@ -188,13 +188,13 @@ def process_file(
 
     # remove SEF frames that we're not interested in.
     _subset = np.searchsorted(f_t0, [start_frame, end_frame])
-    f_t0 = f_t0[_subset[0]:_subset[1]]
-    t_t0 = t_t0[_subset[0]:_subset[1]]
+    f_t0 = f_t0[_subset[0] : _subset[1]]
+    t_t0 = t_t0[_subset[0] : _subset[1]]
     assert len(f_t0) == len(t_t0)
     _subset = np.searchsorted(f_sample, [start_frame, end_frame])
-    f_sample = f_sample[_subset[0]:_subset[1]]
-    t_sample = t_sample[_subset[0]:_subset[1]]
-    volts = volts[_subset[0]:_subset[1]]
+    f_sample = f_sample[_subset[0] : _subset[1]]
+    t_sample = t_sample[_subset[0] : _subset[1]]
+    volts = volts[_subset[0] : _subset[1]]
     assert len(f_sample) == len(t_sample) == len(volts)
 
     # work out fractional location for when the voltage was measured within the frame
@@ -202,9 +202,9 @@ def process_file(
     # This should also work to check the deglitching.
     _period = 1 / frame_frequency
     _sample_frame_map = np.searchsorted(f_t0, f_sample)
-    f_sample_frac = (t_sample - t_t0[_sample_frame_map])/_period
+    f_sample_frac = (t_sample - t_t0[_sample_frame_map]) / _period
     assert np.logical_and(0 < f_sample_frac, f_sample_frac < 1).all()
-    f_sample_frac += f_sample    
+    f_sample_frac += f_sample
 
     # these specify the phases with the oscillation for which we wish to produce
     # scattering curves. *They are bin edges*.
@@ -248,10 +248,12 @@ def process_file(
     # tof information of the neutron events has to be digitised.
     # i.e. t refers to the index of which time bin/subframe the event belongs to.
     print("Loading NEF, finding phase")
-    _event_reader = event_reader(f"{nx}/{daq_dirname}/DATASET_0/EOS.bin", numframes=numframes)
+    _event_reader = event_reader(
+        f"{nx}/{daq_dirname}/DATASET_0/EOS.bin", numframes=numframes
+    )
 
     _cts = 0
-    idx=0
+    idx = 0
     for nef in _event_reader:
         f_events, t_events, y_events, x_events = nef
         t_events = np.asarray(t_events, np.uint32)
@@ -270,7 +272,7 @@ def process_file(
         # an array index for which time bin the neutron is in.
         t_events = np.digitize(t_events, TIME_BINS) - 1
         _events = np.c_[f_events, t_events, y_events, x_events]
-    
+
         # figure out which events to process
         strt_idx = 0
         end_idx = len(_events)
@@ -279,26 +281,22 @@ def process_file(
         # works out what sample phase each neutron frame/subframe corresponds to.
         l = np.searchsorted(f_sample, f_events[0])
         r = np.searchsorted(f_sample, f_events[-1] + 1)
-        p0, chi2 = fit_sine_wave(
-            f_sample_frac[l:r],
-            volts[l:r],
-            oscillation_period
-        )
+        p0, chi2 = fit_sine_wave(f_sample_frac[l:r], volts[l:r], oscillation_period)
         if debug:
             print(p0, chi2)
             np.savetxt(f"fs{idx}.txt", f_sample_frac[l:r])
             np.savetxt(f"vs{idx}.txt", volts[l:r])
             fig = Figure()
             ax = fig.add_subplot(111)
-            ax.plot(f_sample_frac, volts);
+            ax.plot(f_sample_frac, volts)
             ax.plot(f_sample_frac, wave(f_sample_frac, p0))
             ax.set_xlim(f_sample[l], f_sample[l] + 100)
             fig.savefig(f"fit{idx}.png")
-            idx+=1
+            idx += 1
 
         # calculate sample phase for each neutron frame, correcting for TOF of sample to detector
         frame_phases = (phase(_frac_frames, p0) - _phase_offset) % (2 * np.pi)
-    
+
         # Calculate where the phase of each of frames/subframes would land in the phase_bins.
         # i.e. it specifies which detector image each frame/subframe each neutron will end up in.
         bin_loc = np.digitize(frame_phases, phase_bins) - 1
@@ -353,13 +351,7 @@ def fit_sine_wave(fs, vs, oscillation_period):
         (0, oscillation_period),
         (0.9 * oscillation_period, 1.1 * oscillation_period),
     ]
-    res = differential_evolution(
-        chi2,
-        bounds=bounds,
-        args=(fs, vs),
-        polish=False
-
-    )
+    res = differential_evolution(chi2, bounds=bounds, args=(fs, vs), polish=False)
     return res.x, res.fun
 
 

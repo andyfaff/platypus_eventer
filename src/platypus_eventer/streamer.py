@@ -43,6 +43,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
     import RPi.GPIO as gpio
 
     last_time = [time.time_ns()]
+
     def _callback(queue, channel):
         t = time.time_ns()
         # debounce
