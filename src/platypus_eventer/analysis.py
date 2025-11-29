@@ -60,6 +60,34 @@ def read_events(daq_dirname, dataset=0, pth="."):
     return _events
 
 
+def process_events(events, channel=1):
+    """
+    Processes event list tuple from `read_events`.
+
+    Parameters
+    ----------
+    events
+    channel : int
+        which ADC channel to read
+
+    Returns
+    -------
+    f_f, t_f, f_v, t_v, volts
+    """
+    f_f = np.array([i[0] for i in events if i[2] < 0])
+    t_f = np.array([i[1] for i in events if i[2] < 0])
+
+    f_v = np.array([i[0] for i in events if i[2] == channel])
+    t_v = np.array([i[1] for i in events if i[2] == channel])
+    volts = np.array([i[-1] for i in events if i[2] == channel])
+
+    # convert to seconds
+    t_v = np.asarray(t_v, np.float64) / 1e9
+    t_f = np.asarray(t_f, np.float64) / 1e9
+
+    return f_f, t_f, f_v, t_v, volts
+
+
 def predicted_frame(daq_dirname, dataset=0, pth="."):
     s = Status()
     state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))
