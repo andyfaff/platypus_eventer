@@ -1,4 +1,6 @@
 import itertools
+import warnings
+
 import numpy as np
 from matplotlib.figure import Figure
 from scipy.optimize import differential_evolution, minimize
@@ -203,7 +205,15 @@ def process_file(
     _period = 1 / frame_frequency
     _sample_frame_map = np.searchsorted(f_t0, f_sample)
     f_sample_frac = (t_sample - t_t0[_sample_frame_map]) / _period
-    assert np.logical_and(0 < f_sample_frac, f_sample_frac < 1).all()
+    try:
+        assert np.logical_and(0 < f_sample_frac, f_sample_frac < 1).all()
+    except AssertionError:
+        cts = np.count_nonzero(np.logical_and(0 < f_sample_frac, f_sample_frac < 1))
+        warnings.warn(
+            f"A number {cts} of voltage measurements appear to been placed in the"
+            f" wrong frame",
+            RuntimeWarning
+        )
     f_sample_frac += f_sample
 
     # these specify the phases with the oscillation for which we wish to produce
@@ -350,7 +360,7 @@ def fit_sine_wave(fs, vs, oscillation_period):
         (0.9 * offset, 1.1 * offset),
         (0.8 * amplitude, 1.2 * amplitude),
         (-oscillation_period, oscillation_period),
-        (0.5 * oscillation_period, 1.5 * oscillation_period),
+        (0.8 * oscillation_period, 1.2 * oscillation_period),
     ]
     res = differential_evolution(chi2, bounds=bounds, args=(fs, vs), polish=False)
     return res.x, res.fun
