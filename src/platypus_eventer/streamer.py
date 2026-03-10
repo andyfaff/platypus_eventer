@@ -110,13 +110,26 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     spi.open(0, 0)
     spi.max_speed_hz = 1000000
 
+    # MCP3008
+    # def read_channel(channel):
+    #     adc = spi.xfer2([1, (8 + channel) << 4, 0])
+    #     data = ((adc[1] & 3) << 8) + adc[2]
+    #     return data
+    
+    # MCP3208 https://forums.raspberrypi.com/viewtopic.php?t=176425
     def read_channel(channel):
         adc = spi.xfer2([1, (8 + channel) << 4, 0])
         data = ((adc[1] & 3) << 8) + adc[2]
         return data
 
+    # MCP3008
+    # def convert_volts(data):
+    #     volts = (data * 3.3) / 1023.0
+    #     return volts
+
+    # MCP3208    
     def convert_volts(data):
-        volts = (data * 3.3) / 1023.0
+        volts = (data * 3.3) / 4096
         return volts
 
     # Samples per frame
@@ -144,11 +157,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
             # measured at 0.306 using 10 V supply and voltmeter
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
-<<<<<<< HEAD
-            if frame_event.is_set() or (t - init_time) * 1e-9 > period - tspacing:
-=======
             if frame_event.is_set() or (t - init_time)*1e-9 > period - tspacing:
->>>>>>> 2d1f570 (adc streamer)
                 break
             if i < N - 1:
                 time.sleep(tspacing)
