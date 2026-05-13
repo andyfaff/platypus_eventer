@@ -24,7 +24,7 @@ async def zmq_logger(args):
                 if name:
                     # Filter logic: Check against interesting_tags or /control/ prefix
                     if name in args.tags:  # or name.startswith("/control/"):
-                        print(msg)
+                        # print(msg)
                         await f.write(f"{name}, {msg['ts']}, {msg['value']}\n")
                         await f.flush()  # Ensure it's written to disk
                         # A. Write the ENTIRE record to file (one JSON per line)
@@ -41,7 +41,7 @@ async def zmq_logger(args):
 
 
 def main():
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    # asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
     parser = argparse.ArgumentParser(description="ZMQ Logger")
 
