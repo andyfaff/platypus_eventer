@@ -20,25 +20,6 @@ T4_PIN = 13
 _struct = "<lQbe"
 _struct_sz = struct.calcsize(_struct)
 
-
-def writer(pth, queue):
-    with gzip.GzipFile(pth / "EOS.gz", mode="wb", compresslevel=4) as fi:
-        while True:
-            item = queue.get()
-            if item is None:
-                fi.flush()
-                # multiprocessing.Queue has no task_done
-                # queue.task_done()
-                print("closing writer")
-                break
-            fi.write(item)
-            # multiprocessing.Queue has no task_done
-            # queue.task_done()
-
-
-nan = np.float16(np.nan)
-
-
 def T0_streamer(frame, frame_event, queue, shutdown_event):
     last_time = [time.time_ns()]
     while True:
@@ -51,7 +32,7 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
 
 def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     while True:
-        frame_event.wait(timeout=1)
+        time.sleep(1.0)
         if shutdown_event.is_set():
             print("ADC streamer stopping")
             break

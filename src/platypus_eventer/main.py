@@ -31,13 +31,12 @@ class EventStreamer:
 
         self.queue = None
         self.shutdown_event = Event()
-        self.frame_event = Event()
-        self.p_writer = None
+        self.frame_event = None
         self.p_ADC_streamer = None
         self.p_t0_streamer = None
 
         self.currently_streaming = False
-        self.frame = Value(ctypes.c_uint32)
+        self.frame = None
 
     def stop(self, DATASET_number=None, final_state=None):
         self.currently_streaming = False
@@ -61,18 +60,6 @@ class EventStreamer:
             except ValueError:
                 pass
 
-        if self.queue is not None:
-            self.queue.put(None)
-            while not self.queue.empty():
-                time.sleep(0.1)
-
-        if self.p_writer is not None:
-            try:
-                self.p_writer.join()
-                self.p_writer.close()
-            except ValueError:
-                pass
-
         if DATASET_number is not None and final_state is not None:
             parent = self.stream_loc.parent
             new_name = parent / f"DATASET_{DATASET_number}"
@@ -85,11 +72,9 @@ class EventStreamer:
         self.stream_loc = stream_loc
 
         self.shutdown_event.clear()
-        self.frame_event.clear()
 
-        self.frame = Value(ctypes.c_int32, -1)
-        self.queue = Queue()
-        self.p_writer = Process(target=streamer.writer, args=(stream_loc, self.queue))
+        self.frame = None
+        self.queue = None
         self.p_t0_streamer = Process(
             target=streamer.T0_streamer,
             args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
@@ -106,18 +91,11 @@ class EventStreamer:
             ),
         )
 
-        self.p_writer.start()
         self.p_t0_streamer.start()
         self.p_ADC_streamer.start()
 
         self.start_time = time.time()
         self.currently_streaming = True
-
-
-def _signal_close(streamer, signal, frame):
-    if mp.parent_process() is None:
-        streamer.stop()
-        sys.exit()
 
 
 def _create_stream_directory(pth, state, dataset_number_being_written=0):
@@ -189,10 +167,6 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
     else:
         raise RuntimeError("Cannot obtain initial state from DAS server.")
     streamer = EventStreamer(frame_frequency=frame_frequency, N=N)
-
-    # shutdown gracefully
-    signal_close = partial(_signal_close, streamer)
-    signal.signal(signal.SIGINT, signal_close)
 
     update_period = 2.0
 
