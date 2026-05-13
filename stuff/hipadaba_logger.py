@@ -27,9 +27,6 @@ async def zmq_logger(args):
                         # print(msg)
                         await f.write(f"{name}, {msg['ts']}, {msg['value']}\n")
                         await f.flush()  # Ensure it's written to disk
-                        # A. Write the ENTIRE record to file (one JSON per line)
-
-                        #    print(f"[LOGGED & PUBLISHED] {name}")
 
     except asyncio.CancelledError:
         print("\n[!] Shutting down bridge...")
