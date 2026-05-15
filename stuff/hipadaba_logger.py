@@ -18,7 +18,7 @@ async def zmq_logger(args):
 
     try:
         # Open file in append mode
-        async with aiofiles.open(args.outfile, mode='a') as f:
+        async with aiofiles.open(args.outfile, mode="a") as f:
             while True:
                 msg = await zmq_socket.recv_json()
                 name = msg.get("name")
@@ -44,12 +44,24 @@ def main():
     parser = argparse.ArgumentParser(description="ZMQ Logger")
 
     # ZMQ Connection Args
-    parser.add_argument("--zmq-addr", default="tcp://<SERVER-NAME>:5566", help="ZMQ source address")
+    parser.add_argument(
+        "--zmq-addr",
+        default="tcp://<SERVER-NAME>:5566",
+        help="ZMQ source address",
+    )
 
     # File and Filter Args
-    parser.add_argument("--outfile", default="instrument_log.dat", help="File to save full records")
-    parser.add_argument("--tags", nargs="+", required=False,
-                        help="List of interesting tags to filter (space separated)")
+    parser.add_argument(
+        "--outfile",
+        default="instrument_log.dat",
+        help="File to save full records",
+    )
+    parser.add_argument(
+        "--tags",
+        nargs="+",
+        required=False,
+        help="List of interesting tags to filter (space separated)",
+    )
 
     args = parser.parse_args()
     print(args.tags)
