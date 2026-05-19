@@ -4,6 +4,7 @@ import argparse
 from pathlib import Path
 import configparser
 
+
 if __name__ == "__main__":
     # print(sys.argv)
 
