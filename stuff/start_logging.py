@@ -34,13 +34,21 @@ if __name__ == "__main__":
     ics = config.get("url", "ics")
 
     _args = ["python", "hipadaba_logger.py", "--zmq-addr", ics, "--tags"]
-    _args.extend(args.tags)
+    
+    if args.tags is not None:
+        _args.extend(args.tags)
+ 
     p1 = subprocess.Popen(_args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    stdout0, stderr0 = p0.communicate()
-    print(stdout0.decode())
-    print(stderr0.decode())
+    try:
+        stdout0, stderr0 = p0.communicate()
+        print(stdout0.decode())
+        print(stderr0.decode())
 
-    stdout1, stderr1 = p1.communicate()
-    print(stdout1.decode())
-    print(stderr1.decode())
+        stdout1, stderr1 = p1.communicate()
+        print(stdout1.decode())
+        print(stderr1.decode())
+    except KeyboardInterrupt:
+        p0.terminate()
+        p1.terminate()
+ 
