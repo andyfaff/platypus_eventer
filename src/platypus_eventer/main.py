@@ -89,10 +89,17 @@ class EventStreamer:
 
         self.frame = Value(ctypes.c_int32, -1)
         self.queue = Queue()
-        self.p_writer = Process(target=streamer.writer, args=(stream_loc, self.queue))
+        self.p_writer = Process(
+            target=streamer.writer, args=(stream_loc, self.queue)
+        )
         self.p_t0_streamer = Process(
             target=streamer.T0_streamer,
-            args=(self.frame, self.frame_event, self.queue, self.shutdown_event),
+            args=(
+                self.frame,
+                self.frame_event,
+                self.queue,
+                self.shutdown_event,
+            ),
         )
         self.p_ADC_streamer = Process(
             target=streamer.ADC_streamer,
@@ -139,7 +146,9 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
     stream_loc : Path
         The path of the streaming directory
     """
-    stream_loc = pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
+    stream_loc = (
+        pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
+    )
     stream_loc = stream_loc.resolve()
     os.makedirs(stream_loc, exist_ok=True)
     print(f"New sample event file starting, {stream_loc=}")
@@ -150,7 +159,9 @@ def _create_stream_directory(pth, state, dataset_number_being_written=0):
 
 
 def _update_status(pth, state, dataset_number_being_written):
-    stream_loc = pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
+    stream_loc = (
+        pth / state.DAQ_dirname / f"DATASET_{dataset_number_being_written}"
+    )
     stream_loc = stream_loc.resolve()
     with open(stream_loc / "state.txt", "w") as f:
         f.write(state.response)
@@ -234,14 +245,19 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
         if streamer.currently_streaming and (
             not (state.started or state.starting)
             or state.DAQ_dirname != old_state.DAQ_dirname
-            or (state.started and actual_dataset_number != dataset_number_being_written)
+            or (
+                state.started
+                and actual_dataset_number != dataset_number_being_written
+            )
         ):
             # stop streaming
             print(f"Stopping streamer, {state.DAQ_dirname=}")
             streamer.stop(actual_dataset_number, _s)
             update_period = 1
 
-        if (state.started or state.starting) and not streamer.currently_streaming:
+        if (
+            state.started or state.starting
+        ) and not streamer.currently_streaming:
             # time to start new directories and start streaming
             # textstatus does not fully update until the acquisition has started.
             if LAST_DAQ_DIRNAME != state.DAQ_dirname:
@@ -262,7 +278,9 @@ def main(user="manager", password="", pth=None, frame_frequency=None, N=1):
 
             STATE_REQUIRES_UPDATE = True
             stream_loc = _create_stream_directory(
-                pth, state, dataset_number_being_written=dataset_number_being_written
+                pth,
+                state,
+                dataset_number_being_written=dataset_number_being_written,
             )
             time_state_last_updated = time.time()
 

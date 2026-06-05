@@ -14,14 +14,30 @@ def _event_sef(buf):
 
 
 def _predicted_frame(ev, dataset_start_time_t):
-    # figures out which frame in the SEF corresponds to the first frame
-    # in the NEF
-    t0 = [ev[i][1] for i in range(len(ev)) if ev[i][2] == -1]
+    # figures out frame correspondence between NEF and SEF.
+    # if offset > 0 you need to discard SEF frames
+    # if offset < 0 you need to discard NEF frames
 
-    idx = np.searchsorted(np.array(t0) / 1e9, dataset_start_time_t)
-    nearest_time = np.argmin(((np.array(t0)) / 1e9 - dataset_start_time_t) ** 2)
-    print(f"array search: {int(idx)}, nearest time: {nearest_time}")
-    return nearest_time
+    # obtain all the t0 times for the SEF file
+    t0 = [ev[i][1] for i in range(len(ev)) if ev[i][2] == -1]
+    t0 = np.array(t0, np.float64) / 1e9
+
+    if t0[0] < dataset_start_time_t:
+        # SEF started first
+        idx = np.searchsorted(t0, dataset_start_time_t)
+        nearest_time = np.argmin((t0 - dataset_start_time_t) ** 2)
+        print(f"array search: {int(idx)}, nearest time: {nearest_time}")
+        return nearest_time
+    else:
+        # NEF started first
+        average_period = np.mean(np.diff(t0))
+        probable_frequency = np.round(1 / average_period)
+        precise_period = 1 / probable_frequency
+        # these are the estimated t0 of the neutron events that should
+        # encompass the first NEF
+        t0_n = dataset_start_time_t + np.arange(2000) * precise_period
+        nearest_time = np.argmin((t0_n - t0[0]) ** 2)
+        return -nearest_time
 
 
 def read_events(daq_dirname, dataset=0, pth="."):
@@ -89,6 +105,26 @@ def process_events(events, channel=1):
 
 
 def predicted_frame(daq_dirname, dataset=0, pth="."):
+    """
+    Calculates the offset to make the SEF line up with the NEF.
+    If the offset is positive then the SEF started before the NEF. You
+    need to discard SEF frames up to that point.
+    If the offset is negative then the NEF started before the SEF. You
+    need to discard NEF frames up to that point. Alternatively, you can
+    increase the SEF frame number by abs(offset).
+
+    Parameters
+    ----------
+    daq_dirname: {str, Path-like}
+        NEF/SEF event directory name
+    dataset: int
+    pth: {str, Path-like}
+        location of the SEF data
+
+    Returns
+    -------
+    offset: int
+    """
     s = Status()
     state = State(s.from_file(daq_dirname, dataset=dataset, pth=pth))
     dataset_start_time_t = state.dataset_start_time_t
@@ -137,7 +173,9 @@ def identify_glitch(t_f, frame_frequency, window=5):
     return glitch
 
 
-def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5, debug=False):
+def deglitch(
+    f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5, debug=False
+):
     """
     Removes glitches caused by missed T0 pulses in a Sample Event File
     train. Glitches in predicted frame times are replaced with model
@@ -169,7 +207,10 @@ def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5, debug=False
     """
     period = 1 / frame_frequency
     glitches = (
-        np.argwhere(identify_glitch(t_f, frame_frequency, window=window)).flatten() + 1
+        np.argwhere(
+            identify_glitch(t_f, frame_frequency, window=window)
+        ).flatten()
+        + 1
     )
 
     if not len(glitches):
@@ -182,7 +223,9 @@ def deglitch(f_f, t_f, f_v, t_v, voltage, frame_frequency, window=5, debug=False
     batch = []
     for i, _d in enumerate(_diff):
         if _d:
-            batches.append(np.r_[np.array(batch), glitches[i], glitches[i] + 1])
+            batches.append(
+                np.r_[np.array(batch), glitches[i], glitches[i] + 1]
+            )
             batch = []
         else:
             batch.append(glitches[i])
@@ -237,5 +280,7 @@ def check_sample_times(f_f, t_f, f_v, t_v):
         try:
             assert t_f[loc] < _t_v < t_f[loc + 1]
         except AssertionError as e:
-            print(f"{i=}, {loc=}, {_f_v=},  {t_f[loc]=}, {_t_v=},  {t_f[loc+1]=}")
+            print(
+                f"{i=}, {loc=}, {_f_v=},  {t_f[loc]=}, {_t_v=},  {t_f[loc+1]=}"
+            )
             raise e

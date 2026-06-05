@@ -10,7 +10,7 @@ T4_PIN = 13
 
 # frame | time               | channel       | voltage
 # ------|--------------------|---------------|--------
-# long  | unsigned long long | unsigned char | float16
+# long  | unsigned long long | signed char   | float16
 #
 # time is in ns since epoch
 # channel = -1  TO
@@ -75,7 +75,9 @@ def T0_streamer(frame, frame_event, queue, shutdown_event):
     gpio.cleanup()
 
 
-def ADC_streamer2(frame, frame_event, queue, shutdown_event, frame_frequency, N):
+def ADC_streamer2(
+    frame, frame_event, queue, shutdown_event, frame_frequency, N
+):
     # only for testing chopper 4 signal. When you use ADC comment this out again
     import RPi.GPIO as gpio
 
@@ -103,7 +105,9 @@ def ADC_streamer2(frame, frame_event, queue, shutdown_event, frame_frequency, N)
     gpio.cleanup()
 
 
-def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
+def ADC_streamer(
+    frame, frame_event, queue, shutdown_event, frame_frequency, N
+):
     import spidev
 
     spi = spidev.SpiDev()
@@ -115,7 +119,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     #     adc = spi.xfer2([1, (8 + channel) << 4, 0])
     #     data = ((adc[1] & 3) << 8) + adc[2]
     #     return data
-    
+
     # MCP3208 https://forums.raspberrypi.com/viewtopic.php?t=176425
     def read_channel(channel):
         adc = spi.xfer2([1, (8 + channel) << 4, 0])
@@ -127,7 +131,7 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
     #     volts = (data * 3.3) / 1023.0
     #     return volts
 
-    # MCP3208    
+    # MCP3208
     def convert_volts(data):
         volts = (data * 3.3) / 4096
         return volts
@@ -157,7 +161,10 @@ def ADC_streamer(frame, frame_event, queue, shutdown_event, frame_frequency, N):
             # measured at 0.306 using 10 V supply and voltmeter
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
-            if frame_event.is_set() or (t - init_time)*1e-9 > period - tspacing:
+            if (
+                frame_event.is_set()
+                or (t - init_time) * 1e-9 > period - tspacing
+            ):
                 break
             if i < N - 1:
                 time.sleep(tspacing)
