@@ -157,8 +157,10 @@ def ADC_streamer(
             # ADC measure
             level = read_channel(0)
             v = convert_volts(level)
-            # voltage divider 8.05 kOhm, 17.92 kOhm = 0.31 divider
-            # measured at 0.306 using 10 V supply and voltmeter
+
+            # account for the OpAmp Scaling
+            v = (v - 1.5803) / -0.1455
+
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
             if (
