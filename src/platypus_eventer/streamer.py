@@ -121,9 +121,10 @@ def ADC_streamer(
     #     return data
 
     # MCP3208 https://forums.raspberrypi.com/viewtopic.php?t=176425
+
     def read_channel(channel):
-        adc = spi.xfer2([1, (8 + channel) << 4, 0])
-        data = ((adc[1] & 3) << 8) + adc[2]
+        adc = spi.xfer2([6 + ((channel & 4) >> 2), (channel & 3) << 6, 0])
+        data = ((adc[1] & 15) << 8) + adc[2]
         return data
 
     # MCP3008
@@ -133,7 +134,7 @@ def ADC_streamer(
 
     # MCP3208
     def convert_volts(data):
-        volts = (data * 3.3) / 4096
+        volts = (data * 3.25) / 4096
         return volts
 
     # Samples per frame
