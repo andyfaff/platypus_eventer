@@ -160,7 +160,7 @@ def ADC_streamer(
             v = convert_volts(level)
 
             # account for the OpAmp Scaling
-            v = (v - 1.5803) / -0.1455
+            v = (v - 1.562) / -0.1411
 
             b = struct.pack(_struct, f, t, 1, np.float16(v))
             queue.put(b)
