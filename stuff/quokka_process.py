@@ -300,7 +300,7 @@ def process_file(
             ax = fig.add_subplot(111)
             ax.plot(f_sample_frac, volts)
             ax.plot(f_sample_frac, wave(f_sample_frac, p0))
-            ax.set_xlim(f_sample[l], f_sample[l] + 100)
+            ax.set_xlim(f_sample[l], f_sample[l] + 5*oscillation_period)
             fig.savefig(f"fit{idx}.png")
             idx += 1
 
