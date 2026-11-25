@@ -358,9 +358,9 @@ def fit_sine_wave(fs, vs, oscillation_period):
     amplitude = 0.5 * (max(vs) - min(vs))
     bounds = [
         (0.9 * offset, 1.1 * offset),
-        (0.8 * amplitude, 1.2 * amplitude),
+        (0.4 * amplitude, 1.1 * amplitude),
         (-oscillation_period, oscillation_period),
-        (0.8 * oscillation_period, 1.2 * oscillation_period),
+        (0.98 * oscillation_period, 1.02 * oscillation_period),
     ]
     res = differential_evolution(chi2, bounds=bounds, args=(fs, vs), polish=False)
     return res.x, res.fun
