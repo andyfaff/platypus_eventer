@@ -351,11 +351,16 @@ def process_file(
     if debug:
         print(f"Total counts over bins: {np.sum(detector)}")
         _dc = [np.sum(bin) for bin in detector]
-        print("Counts in each bin: ", _dc)
+        print("Counts in each bin: ", np.array(_dc))
+        fig = Figure()
+        ax = fig.add_subplot(111)
+        ax.plot(np.array(_dc))
+        fig.savefig("counts_in_bin.png")
+
         with h5py.File(fpth / f"QKK{nx:07d}.nx.hdf", "r") as _fi:
             dataset_name = f"/QKK{nx:07d}/data/hmm_xy"
             dset = _fi[dataset_name]
-            print("ORIGINAL detector counts: ", dset)
+            print("ORIGINAL detector counts: ", np.sum(dset))
 
     qkk_patcher(nx, detector, frame_count_fraction * fractional_time, fpth)
     print("finished")
