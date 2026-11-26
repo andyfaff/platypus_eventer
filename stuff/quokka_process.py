@@ -293,7 +293,7 @@ def process_file(
         r = np.searchsorted(f_sample, f_events[-1] + 1)
         p0, chi2 = fit_sine_wave(f_sample_frac[l:r], volts[l:r], oscillation_period)
         if debug:
-            print(p0, chi2)
+            print(idx, p0, chi2)
             np.savetxt(f"fs{idx}.txt", f_sample_frac[l:r])
             np.savetxt(f"vs{idx}.txt", volts[l:r])
             fig = Figure()
