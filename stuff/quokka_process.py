@@ -368,7 +368,7 @@ def fit_sine_wave(fs, vs, oscillation_period):
     amplitude = 0.5 * (max(vs) - min(vs))
     bounds = [
         (0.9 * offset, 1.1 * offset),
-        (0.4 * amplitude, 1.1 * amplitude),
+        (0.4 * amplitude, 1.02 * amplitude),
         (-oscillation_period, oscillation_period),
         (0.98 * oscillation_period, 1.02 * oscillation_period),
     ]
