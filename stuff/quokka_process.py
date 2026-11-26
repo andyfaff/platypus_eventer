@@ -347,6 +347,16 @@ def process_file(
         np.count_nonzero(bin_loc == i) for i in range(nbins)
     ] / np.prod(bin_loc.shape)
     print("patching file")
+
+    if debug:
+        print(f"Total counts over bins: {np.sum(detector)}")
+        _dc = [np.sum(bin) for bin in detector]
+        print("Counts in each bin: ", _dc)
+        with h5py.File(fpth / f"QKK{nx:07d}.nx.hdf", "r") as _fi:
+            dataset_name = f"/QKK{nx:07d}/data/hmm_xy"
+            dset = _fi[dataset_name]
+            print("ORIGINAL detector counts: ", dset)
+
     qkk_patcher(nx, detector, frame_count_fraction * fractional_time, fpth)
     print("finished")
 
