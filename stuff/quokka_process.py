@@ -181,8 +181,8 @@ def process_file(
     end_frame = np.inf
     fractional_time = 1
     if collect_time is not None:
-        start_frame = max(collect_time[0] * frame_frequency, 0)
-        end_frame = collect_time[1] * frame_frequency
+        start_frame = int(np.ceil(max(collect_time[0] * frame_frequency, 0)))
+        end_frame = int(collect_time[1] * frame_frequency)
         # what fraction of the measurement did we want to examine?
         fractional_time = (collect_time[1] - collect_time[0]) / measurement_time
         if collect_time[1] > measurement_time:
@@ -192,6 +192,7 @@ def process_file(
     _subset = np.searchsorted(f_t0, [start_frame, end_frame])
     f_t0 = f_t0[_subset[0] : _subset[1]]
     t_t0 = t_t0[_subset[0] : _subset[1]]
+    assert start_frame == f_t0[0]
     assert len(f_t0) == len(t_t0)
     _subset = np.searchsorted(f_sample, [start_frame, end_frame])
     f_sample = f_sample[_subset[0] : _subset[1]]
@@ -208,11 +209,16 @@ def process_file(
     try:
         assert np.logical_and(0 < f_sample_frac, f_sample_frac < 1).all()
     except AssertionError:
-        cts = np.count_nonzero(np.logical_and(0 < f_sample_frac, f_sample_frac < 1))
+        print(
+            np.min(f_sample_frac),
+            np.max(f_sample_frac),
+            np.count_nonzero(f_sample_frac > 1),
+        )
+        cts = np.count_nonzero(np.logical_or(f_sample_frac < 0, f_sample_frac > 1))
         warnings.warn(
             f"A number {cts} of voltage measurements appear to been placed in the"
             f" wrong frame",
-            RuntimeWarning
+            RuntimeWarning,
         )
     f_sample_frac += f_sample
 
@@ -300,7 +306,7 @@ def process_file(
             ax = fig.add_subplot(111)
             ax.plot(f_sample_frac, volts)
             ax.plot(f_sample_frac, wave(f_sample_frac, p0))
-            ax.set_xlim(f_sample[l], f_sample[l] + 5*oscillation_period)
+            ax.set_xlim(f_sample[l], f_sample[l] + 5 * oscillation_period)
             fig.savefig(f"fit{idx}.png")
             idx += 1
 
@@ -319,10 +325,22 @@ def process_file(
 
         for i in _events[strt_idx:end_idx]:
             f, t, y, x = i
-            # assert f in f_t0
+            assert start_frame <= f <= end_frame
+
+            # f_t0 --> _frac_frames --> frame_phases --> bin_loc is a 2D array whose rows correspond
+            # to individual frames and whose cols correspond to sub_frame_bins.
+            # If collect_time[0] is > 0, then the frame number needs to have the start_frame subtracted
+            # bin_loc[0] corresponds to the start_frame
             try:
-                det_idx = bin_loc[f, t]
+                assert 0 <= f - start_frame < len(bin_loc)
+                if t > nbins - 1:
+                    raise IndexError("TOF was outside the tbins")
+                det_idx = bin_loc[f - start_frame, t]
+            except AssertionError:
+                print(f"{f=}, {bin_loc.shape=}")
+                raise
             except IndexError as e:
+                print(f"{t} was outside the max tof bin")
                 # some TOF lie outside the timebins for some reason
                 continue
             detector[det_idx, y, x] += 1
@@ -346,6 +364,10 @@ def process_file(
     frame_count_fraction = [
         np.count_nonzero(bin_loc == i) for i in range(nbins)
     ] / np.prod(bin_loc.shape)
+    if debug:
+        print(frame_count_fraction)
+        plt.plot(frame_count_fraction)
+
     print("patching file")
 
     if debug:
@@ -355,7 +377,7 @@ def process_file(
         fig = Figure()
         ax = fig.add_subplot(111)
         ax.plot(np.array(_dc))
-        fig.savefig("counts_in_bin.png")
+        fig.savefig(f"counts_in_bins.png")
 
         with h5py.File(fpth / f"QKK{nx:07d}.nx.hdf", "r") as _fi:
             dataset_name = f"/QKK{nx:07d}/data/hmm_xy"
@@ -374,7 +396,7 @@ def fit_sine_wave(fs, vs, oscillation_period):
     bounds = [
         (0.9 * offset, 1.1 * offset),
         (0.4 * amplitude, 1.02 * amplitude),
-        (-oscillation_period, oscillation_period),
+        (0, oscillation_period),
         (0.98 * oscillation_period, 1.02 * oscillation_period),
     ]
     res = differential_evolution(chi2, bounds=bounds, args=(fs, vs), polish=False)
